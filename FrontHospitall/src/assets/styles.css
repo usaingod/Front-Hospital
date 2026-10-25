@@ -1,0 +1,1442 @@
+@import 'bootstrap/dist/css/bootstrap.min.css';
+@import 'bootstrap-icons/font/bootstrap-icons.css';
+
+:root {
+  /* Paleta Verde Hospitalario */
+  --hospital-green-sidebar: #0f3d2e;
+  --hospital-green-sidebar-hover: #164f3c;
+  --hospital-green-sidebar-active: #1b634c;
+  --hospital-green-sidebar-border: #134636;
+  
+  --hospital-green-primary: #198754;
+  --hospital-green-primary-hover: #146c43;
+  --hospital-green-primary-active: #0f5132;
+  
+  --hospital-green-light: #e8f5e9;
+  --hospital-green-subtle: #f0fdf4;
+  --hospital-green-border: #c3e6cb;
+  --hospital-green-badge-bg: #d1e7dd;
+  --hospital-green-badge-text: #0f5132;
+
+  /* Paleta Azul Administrador */
+  --hospital-blue-sidebar: #0b2545;
+  --hospital-blue-sidebar-hover: #133a6b;
+  --hospital-blue-sidebar-active: #1a4b87;
+  --hospital-blue-sidebar-border: #133256;
+
+  --hospital-blue-primary: #1d4ed8;
+  --hospital-blue-primary-hover: #1e40af;
+  --hospital-blue-primary-active: #1e3a8a;
+
+  --hospital-blue-light: #eff6ff;
+  --hospital-blue-subtle: #f0f7ff;
+  --hospital-blue-border: #bfdbfe;
+  --hospital-blue-badge-bg: #dbeafe;
+  --hospital-blue-badge-text: #1e40af;
+
+  /* Fondos y Neutros */
+  --hospital-bg: #f8fafc;
+  --hospital-card-bg: #ffffff;
+  --hospital-border-color: #e2e8f0;
+  --hospital-border-subtle: #edf2f7;
+  
+  /* Textos */
+  --hospital-text-main: #1e293b;
+  --hospital-text-secondary: #475569;
+  --hospital-text-muted: #64748b;
+  --hospital-text-light: #94a3b8;
+  
+  /* Tipografía */
+  --hospital-font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+body {
+  font-family: var(--hospital-font);
+  background-color: var(--hospital-bg);
+  color: var(--hospital-text-main);
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ==========================================================
+   LAYOUT GENERAL
+   ========================================================== */
+.layout-wrapper {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+  background-color: var(--hospital-bg);
+}
+
+/* Sidebar */
+.hospital-sidebar {
+  width: 260px;
+  min-width: 260px;
+  background-color: var(--hospital-green-sidebar);
+  color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  border-right: 1px solid var(--hospital-green-sidebar-border);
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 1040;
+  transition: transform 0.25s ease-in-out;
+}
+
+.hospital-sidebar-brand {
+  padding: 1.25rem 1.25rem 1rem 1.25rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.hospital-brand-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.35rem;
+  color: #a7f3d0;
+}
+
+.hospital-brand-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  color: #ffffff;
+}
+
+.hospital-brand-subtitle {
+  font-size: 0.75rem;
+  color: #a7f3d0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+
+/* Sidebar Navigation */
+.hospital-sidebar-nav {
+  padding: 1rem 0.85rem;
+  flex-grow: 1;
+  overflow-y: auto;
+}
+
+.hospital-nav-category {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.5);
+  font-weight: 600;
+  padding: 0 0.75rem 0.5rem 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.hospital-nav-link {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.75rem 1rem;
+  color: rgba(255, 255, 255, 0.82);
+  text-decoration: none;
+  font-size: 0.95rem;
+  font-weight: 500;
+  border-radius: 8px;
+  margin-bottom: 0.35rem;
+  transition: all 0.15s ease-in-out;
+}
+
+.hospital-nav-link i {
+  font-size: 1.15rem;
+  color: rgba(255, 255, 255, 0.7);
+  transition: color 0.15s ease-in-out;
+}
+
+.hospital-nav-link:hover {
+  background-color: var(--hospital-green-sidebar-hover);
+  color: #ffffff;
+}
+
+.hospital-nav-link:hover i {
+  color: #a7f3d0;
+}
+
+.hospital-nav-link.active {
+  background-color: var(--hospital-green-sidebar-active);
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.hospital-nav-link.active i {
+  color: #6ee7b7;
+}
+
+/* Sidebar Footer & User Profile */
+.hospital-sidebar-footer {
+  padding: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.hospital-profile-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.5rem 0.75rem 0.5rem;
+}
+
+.hospital-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--hospital-green-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  font-size: 1.1rem;
+  font-weight: 600;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.hospital-profile-info {
+  flex-grow: 1;
+  min-width: 0;
+}
+
+.hospital-profile-name {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hospital-profile-role {
+  font-size: 0.75rem;
+  color: #a7f3d0;
+}
+
+.btn-sidebar-logout {
+  width: 100%;
+  padding: 0.5rem;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.85);
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+}
+
+.btn-sidebar-logout:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #fca5a5;
+}
+
+/* ==========================================================
+   SELECTOR DE PERFIL EN SIDEBAR (Secretaría / Administrador)
+   ========================================================== */
+.hospital-profile-selector {
+  position: relative;
+  margin-bottom: 0.65rem;
+}
+
+.hospital-profile-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.55rem 0.65rem;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  color: #ffffff;
+  transition: all 0.15s ease-in-out;
+}
+
+.hospital-profile-trigger:hover,
+.hospital-profile-trigger:focus {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.25);
+  outline: none;
+}
+
+.hospital-profile-trigger .dropdown-chevron {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.7);
+  transition: transform 0.2s ease;
+  margin-left: auto;
+}
+
+.hospital-profile-trigger[aria-expanded='true'] .dropdown-chevron {
+  transform: rotate(180deg);
+  color: #ffffff;
+}
+
+.profile-dropdown-menu {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  background-color: #0d2137;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 10px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+  padding: 0.5rem;
+  z-index: 1055;
+  animation: dropdownFadeUp 0.18s ease-out;
+}
+
+@keyframes dropdownFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.profile-dropdown-header {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.5);
+  font-weight: 700;
+  padding: 0.35rem 0.5rem 0.45rem 0.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 0.35rem;
+}
+
+.profile-dropdown-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.55rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.88);
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s ease-in-out;
+  margin-bottom: 0.25rem;
+}
+
+.profile-dropdown-item:last-child {
+  margin-bottom: 0;
+}
+
+.profile-dropdown-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.profile-dropdown-item.active {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.22);
+  color: #ffffff;
+}
+
+.profile-item-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.95rem;
+  flex-shrink: 0;
+}
+
+.profile-item-icon.green {
+  background: var(--hospital-green-primary);
+  color: #ffffff;
+}
+
+.profile-item-icon.blue {
+  background: var(--hospital-blue-primary);
+  color: #ffffff;
+}
+
+.profile-item-details {
+  flex-grow: 1;
+  min-width: 0;
+}
+
+.profile-item-title {
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.profile-item-desc {
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.6);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.profile-item-check {
+  font-size: 1rem;
+  color: #38bdf8;
+  margin-left: auto;
+}
+
+/* ==========================================================
+   TEMA ADMINISTRADOR (Paleta Azul)
+   ========================================================== */
+.hospital-sidebar.theme-admin {
+  background-color: var(--hospital-blue-sidebar);
+  border-right-color: var(--hospital-blue-sidebar-border);
+}
+
+.hospital-sidebar.theme-admin .hospital-brand-icon {
+  background: rgba(255, 255, 255, 0.15);
+  color: #93c5fd;
+}
+
+.hospital-sidebar.theme-admin .hospital-brand-subtitle {
+  color: #93c5fd;
+}
+
+.hospital-sidebar.theme-admin .hospital-nav-link:hover {
+  background-color: var(--hospital-blue-sidebar-hover);
+  color: #ffffff;
+}
+
+.hospital-sidebar.theme-admin .hospital-nav-link:hover i {
+  color: #93c5fd;
+}
+
+.hospital-sidebar.theme-admin .hospital-nav-link.active {
+  background-color: var(--hospital-blue-sidebar-active);
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+.hospital-sidebar.theme-admin .hospital-nav-link.active i {
+  color: #93c5fd;
+}
+
+.hospital-sidebar.theme-admin .hospital-avatar {
+  background: var(--hospital-blue-primary);
+}
+
+.hospital-sidebar.theme-admin .hospital-profile-role {
+  color: #93c5fd;
+}
+
+/* Modificaciones de componentes bajo tema Administrador */
+.theme-admin .hospital-avatar-sm {
+  background: var(--hospital-blue-primary);
+}
+
+.theme-admin .btn-hospital-primary {
+  background-color: var(--hospital-blue-primary);
+  border-color: var(--hospital-blue-primary);
+}
+
+.theme-admin .btn-hospital-primary:hover,
+.theme-admin .btn-hospital-primary:focus {
+  background-color: var(--hospital-blue-primary-hover);
+  border-color: var(--hospital-blue-primary-hover);
+  box-shadow: 0 2px 8px rgba(29, 78, 216, 0.25);
+}
+
+.theme-admin .btn-hospital-outline-primary {
+  border-color: var(--hospital-blue-primary);
+  color: var(--hospital-blue-primary);
+}
+
+.theme-admin .btn-hospital-outline-primary:hover {
+  background-color: var(--hospital-blue-light);
+  color: var(--hospital-blue-primary-hover);
+}
+
+.theme-admin .hospital-search-input:focus {
+  border-color: var(--hospital-blue-primary);
+  box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.15);
+}
+
+.theme-admin .hospital-action-btn:hover {
+  background-color: var(--hospital-blue-light);
+  color: var(--hospital-blue-primary);
+  border-color: var(--hospital-blue-border);
+}
+
+.theme-admin .form-control:focus,
+.theme-admin .form-select:focus {
+  border-color: var(--hospital-blue-primary);
+  box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.15);
+}
+
+.theme-admin .hospital-table th {
+  background-color: var(--hospital-blue-subtle);
+}
+
+.theme-admin .hospital-modal-header {
+  background-color: var(--hospital-blue-subtle);
+}
+
+.theme-admin .hospital-modal-title i {
+  color: var(--hospital-blue-primary) !important;
+}
+
+.theme-admin .btn-action-icon:hover {
+  background-color: var(--hospital-blue-light);
+  color: var(--hospital-blue-primary);
+  border-color: var(--hospital-blue-border);
+}
+
+.theme-admin .hospital-empty-icon {
+  background-color: var(--hospital-blue-light);
+  color: var(--hospital-blue-primary);
+}
+
+.theme-admin .modal-overlay {
+  background-color: rgba(11, 37, 69, 0.45);
+}
+
+/* Tarjeta expandible de especialidades en Admin Inicio */
+.specialty-expand-card {
+  background-color: #ffffff;
+  border: 1px solid var(--hospital-border-color);
+  border-radius: 12px;
+  overflow: hidden;
+  transition: all 0.2s ease-in-out;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+.specialty-expand-card:hover {
+  border-color: var(--hospital-blue-border);
+  box-shadow: 0 4px 12px rgba(29, 78, 216, 0.08);
+}
+
+.specialty-expand-header {
+  padding: 1.15rem 1.25rem;
+  background-color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.15s ease;
+}
+
+.specialty-expand-header:hover {
+  background-color: var(--hospital-blue-subtle);
+}
+
+.specialty-expand-header .specialty-icon-badge {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background-color: var(--hospital-blue-light);
+  color: var(--hospital-blue-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  flex-shrink: 0;
+}
+
+.specialty-expand-body {
+  border-top: 1px solid var(--hospital-border-subtle);
+  background-color: #fafbfc;
+  padding: 1.25rem;
+}
+
+/* Badges de estado generales */
+.badge-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.25rem 0.65rem;
+  border-radius: 20px;
+}
+
+.badge-status.active {
+  background-color: #d1e7dd;
+  color: #0f5132;
+}
+
+.badge-status.inactive {
+  background-color: #f1f5f9;
+  color: #64748b;
+}
+
+.badge-status.license {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.badge-status.admin {
+  background-color: #dbeafe;
+  color: #1e40af;
+}
+
+.badge-status.secretaria {
+  background-color: #d1e7dd;
+  color: #0f5132;
+}
+
+/* Main Layout Area */
+.hospital-main-wrapper {
+  flex-grow: 1;
+  margin-left: 260px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* Top Navbar */
+.hospital-topbar {
+  height: 68px;
+  background-color: var(--hospital-card-bg);
+  border-bottom: 1px solid var(--hospital-border-color);
+  padding: 0 1.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 1020;
+}
+
+.hospital-search-wrapper {
+  position: relative;
+  width: 380px;
+  max-width: 100%;
+}
+
+.hospital-search-input {
+  width: 100%;
+  height: 40px;
+  padding-left: 2.5rem;
+  padding-right: 1rem;
+  border-radius: 20px;
+  border: 1px solid var(--hospital-border-color);
+  background-color: #f8fafc;
+  font-size: 0.88rem;
+  color: var(--hospital-text-main);
+  transition: all 0.15s ease-in-out;
+}
+
+.hospital-search-input:focus {
+  outline: none;
+  border-color: var(--hospital-green-primary);
+  background-color: #ffffff;
+  box-shadow: 0 0 0 3px rgba(25, 135, 84, 0.15);
+}
+
+.hospital-search-icon {
+  position: absolute;
+  left: 0.95rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--hospital-text-muted);
+  font-size: 0.95rem;
+}
+
+.hospital-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+.hospital-action-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--hospital-border-color);
+  background-color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--hospital-text-secondary);
+  position: relative;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.hospital-action-btn:hover {
+  background-color: var(--hospital-green-light);
+  color: var(--hospital-green-primary);
+  border-color: var(--hospital-green-border);
+}
+
+.hospital-notif-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 8px;
+  height: 8px;
+  background-color: #ef4444;
+  border-radius: 50%;
+  border: 2px solid #ffffff;
+}
+
+.hospital-topbar-profile {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding-left: 0.75rem;
+  border-left: 1px solid var(--hospital-border-color);
+}
+
+.hospital-avatar-sm {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--hospital-green-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.hospital-topbar-name {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--hospital-text-main);
+  line-height: 1.2;
+}
+
+.hospital-topbar-sub {
+  font-size: 0.75rem;
+  color: var(--hospital-text-muted);
+}
+
+/* Page Content Container */
+.hospital-content {
+  padding: 1.75rem;
+  flex-grow: 1;
+}
+
+.hospital-page-header {
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.hospital-page-title {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--hospital-text-main);
+  margin-bottom: 0.25rem;
+  letter-spacing: -0.02em;
+}
+
+.hospital-page-desc {
+  font-size: 0.92rem;
+  color: var(--hospital-text-muted);
+  margin-bottom: 0;
+}
+
+/* ==========================================================
+   CARDS & STATS
+   ========================================================== */
+.hospital-card {
+  background-color: var(--hospital-card-bg);
+  border: 1px solid var(--hospital-border-color);
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  margin-bottom: 1.5rem;
+  overflow: hidden;
+}
+
+.hospital-card-header {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--hospital-border-color);
+  background-color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.hospital-card-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--hospital-text-main);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.hospital-card-body {
+  padding: 1.25rem;
+}
+
+/* Statistical Cards */
+.hospital-stat-card {
+  background-color: #ffffff;
+  border: 1px solid var(--hospital-border-color);
+  border-radius: 12px;
+  padding: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  height: 100%;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.hospital-stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.hospital-stat-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  flex-shrink: 0;
+}
+
+.hospital-stat-icon.green {
+  background-color: var(--hospital-green-light);
+  color: var(--hospital-green-primary);
+}
+
+.hospital-stat-icon.blue {
+  background-color: #e0f2fe;
+  color: #0284c7;
+}
+
+.hospital-stat-icon.amber {
+  background-color: #fef3c7;
+  color: #d97706;
+}
+
+.hospital-stat-icon.rose {
+  background-color: #ffe4e6;
+  color: #e11d48;
+}
+
+.hospital-stat-label {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--hospital-text-muted);
+  margin-bottom: 0.25rem;
+  text-transform: capitalize;
+}
+
+.hospital-stat-value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--hospital-text-main);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.hospital-stat-hint {
+  font-size: 0.75rem;
+  color: var(--hospital-text-light);
+  margin-top: 0.25rem;
+}
+
+/* ==========================================================
+   BUTTONS
+   ========================================================== */
+.btn-hospital-primary {
+  background-color: var(--hospital-green-primary);
+  border-color: var(--hospital-green-primary);
+  color: #ffffff;
+  font-weight: 500;
+  border-radius: 8px;
+  padding: 0.55rem 1.15rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  transition: all 0.15s ease-in-out;
+}
+
+.btn-hospital-primary:hover,
+.btn-hospital-primary:focus {
+  background-color: var(--hospital-green-primary-hover);
+  border-color: var(--hospital-green-primary-hover);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(25, 135, 84, 0.25);
+}
+
+.btn-hospital-outline {
+  background-color: transparent;
+  border: 1px solid var(--hospital-border-color);
+  color: var(--hospital-text-secondary);
+  font-weight: 500;
+  border-radius: 8px;
+  padding: 0.55rem 1rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  transition: all 0.15s ease-in-out;
+}
+
+.btn-hospital-outline:hover {
+  background-color: #f1f5f9;
+  color: var(--hospital-text-main);
+  border-color: #cbd5e1;
+}
+
+.btn-hospital-outline-primary {
+  background-color: transparent;
+  border: 1px solid var(--hospital-green-primary);
+  color: var(--hospital-green-primary);
+  font-weight: 500;
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.88rem;
+  transition: all 0.15s ease-in-out;
+}
+
+.btn-hospital-outline-primary:hover {
+  background-color: var(--hospital-green-light);
+  color: var(--hospital-green-primary-hover);
+}
+
+/* Action Icon Buttons */
+.btn-action-icon {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  border: 1px solid var(--hospital-border-color);
+  background-color: #ffffff;
+  color: var(--hospital-text-secondary);
+  font-size: 0.9rem;
+  transition: all 0.15s ease;
+}
+
+.btn-action-icon:hover {
+  background-color: var(--hospital-green-light);
+  color: var(--hospital-green-primary);
+  border-color: var(--hospital-green-border);
+}
+
+.btn-action-icon.danger:hover {
+  background-color: #fee2e2;
+  color: #dc2626;
+  border-color: #fca5a5;
+}
+
+/* ==========================================================
+   TABLES & EMPTY STATES
+   ========================================================== */
+.hospital-table-wrapper {
+  overflow-x: auto;
+  border-radius: 8px;
+  border: 1px solid var(--hospital-border-color);
+}
+
+.hospital-table {
+  width: 100%;
+  margin-bottom: 0;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.hospital-table th {
+  background-color: var(--hospital-green-subtle);
+  color: var(--hospital-text-secondary);
+  font-weight: 600;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--hospital-border-color);
+  white-space: nowrap;
+}
+
+.hospital-table td {
+  padding: 0.85rem 1rem;
+  font-size: 0.9rem;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--hospital-border-subtle);
+  color: var(--hospital-text-main);
+}
+
+.hospital-table tr:last-child td {
+  border-bottom: none;
+}
+
+/* Empty State Component */
+.hospital-empty-state {
+  padding: 3rem 1.5rem;
+  text-align: center;
+  background-color: #ffffff;
+}
+
+.hospital-empty-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background-color: var(--hospital-green-light);
+  color: var(--hospital-green-primary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.6rem;
+  margin-bottom: 1rem;
+}
+
+.hospital-empty-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--hospital-text-main);
+  margin-bottom: 0.35rem;
+}
+
+.hospital-empty-text {
+  font-size: 0.85rem;
+  color: var(--hospital-text-muted);
+  max-width: 420px;
+  margin: 0 auto;
+}
+
+/* ==========================================================
+   FORM CONTROLS & FILTERS
+   ========================================================== */
+.form-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--hospital-text-secondary);
+  margin-bottom: 0.35rem;
+}
+
+.form-control,
+.form-select {
+  border: 1px solid var(--hospital-border-color);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  padding: 0.55rem 0.85rem;
+  color: var(--hospital-text-main);
+  transition: all 0.15s ease-in-out;
+}
+
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--hospital-green-primary);
+  box-shadow: 0 0 0 3px rgba(25, 135, 84, 0.15);
+}
+
+.form-control::placeholder {
+  color: #94a3b8;
+  font-size: 0.88rem;
+}
+
+/* Filter Bar */
+.hospital-filter-bar {
+  background-color: #ffffff;
+  border: 1px solid var(--hospital-border-color);
+  border-radius: 10px;
+  padding: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+/* ==========================================================
+   CALENDARS & SCHEDULE GRID
+   ========================================================== */
+/* Compact Monthly Calendar */
+.compact-calendar {
+  background-color: #ffffff;
+  border-radius: 10px;
+}
+
+.calendar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.calendar-month-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--hospital-text-main);
+}
+
+.calendar-grid-header {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--hospital-text-muted);
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--hospital-border-subtle);
+}
+
+.calendar-grid-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  padding-top: 0.5rem;
+}
+
+.calendar-day-cell {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.82rem;
+  font-weight: 500;
+  border-radius: 6px;
+  color: var(--hospital-text-main);
+  cursor: pointer;
+  transition: background-color 0.1s ease;
+}
+
+.calendar-day-cell:hover {
+  background-color: var(--hospital-green-light);
+  color: var(--hospital-green-primary);
+}
+
+.calendar-day-cell.other-month {
+  color: #cbd5e1;
+  cursor: default;
+}
+
+.calendar-day-cell.other-month:hover {
+  background-color: transparent;
+  color: #cbd5e1;
+}
+
+.calendar-day-cell.selected {
+  background-color: var(--hospital-green-primary);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.calendar-day-cell.today {
+  border: 1px solid var(--hospital-green-primary);
+  color: var(--hospital-green-primary);
+  font-weight: 600;
+}
+
+/* Turnos Schedule Grid (Intervalos 30 min) */
+.schedule-grid-container {
+  overflow-x: auto;
+  border: 1px solid var(--hospital-border-color);
+  border-radius: 10px;
+  background-color: #ffffff;
+}
+
+.schedule-grid-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  min-width: 650px;
+}
+
+.schedule-grid-table th,
+.schedule-grid-table td {
+  border-right: 1px solid var(--hospital-border-subtle);
+  border-bottom: 1px solid var(--hospital-border-subtle);
+  padding: 0.5rem 0.75rem;
+}
+
+.schedule-grid-table th:last-child,
+.schedule-grid-table td:last-child {
+  border-right: none;
+}
+
+.schedule-time-col {
+  width: 90px;
+  min-width: 90px;
+  background-color: #f8fafc;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--hospital-text-secondary);
+  text-align: center;
+}
+
+.schedule-doctor-header {
+  background-color: var(--hospital-green-subtle);
+  padding: 0.85rem 1rem !important;
+  text-align: center;
+  min-width: 180px;
+}
+
+.schedule-doctor-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--hospital-text-main);
+}
+
+.schedule-doctor-spec {
+  font-size: 0.78rem;
+  color: var(--hospital-text-muted);
+}
+
+.schedule-slot-cell {
+  height: 44px;
+  vertical-align: middle;
+  text-align: center;
+  cursor: pointer;
+  background-color: #ffffff;
+  transition: background-color 0.15s ease;
+}
+
+.schedule-slot-cell:hover {
+  background-color: var(--hospital-green-light);
+}
+
+.schedule-slot-empty-label {
+  font-size: 0.78rem;
+  color: #94a3b8;
+  font-style: italic;
+}
+
+/* Badges de leyenda */
+.legend-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--hospital-text-secondary);
+  padding: 0.25rem 0.6rem;
+  background: #ffffff;
+  border: 1px solid var(--hospital-border-color);
+  border-radius: 6px;
+}
+
+.legend-color-box {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+}
+
+.legend-color-box.available {
+  background-color: #d1e7dd;
+  border: 1px solid #198754;
+}
+
+.legend-color-box.occupied {
+  background-color: #e2e8f0;
+  border: 1px solid #94a3b8;
+}
+
+.legend-color-box.unavailable {
+  background-color: #fee2e2;
+  border: 1px solid #f87171;
+}
+
+/* ==========================================================
+   MODALS
+   ========================================================== */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(15, 61, 46, 0.4);
+  backdrop-filter: blur(2px);
+  z-index: 1060;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  overflow-y: auto;
+}
+
+.hospital-modal {
+  background-color: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  max-width: 620px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--hospital-border-color);
+  animation: modalFadeIn 0.2s ease-out;
+}
+
+.hospital-modal.modal-lg {
+  max-width: 780px;
+}
+
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.97) translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.hospital-modal-header {
+  padding: 1.15rem 1.5rem;
+  border-bottom: 1px solid var(--hospital-border-color);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: var(--hospital-green-subtle);
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+}
+
+.hospital-modal-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--hospital-text-main);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.hospital-modal-body {
+  padding: 1.5rem;
+  overflow-y: auto;
+}
+
+.hospital-modal-footer {
+  padding: 1rem 1.5rem;
+  border-top: 1px solid var(--hospital-border-color);
+  background-color: #f8fafc;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 12px;
+}
+
+/* Quick Access Cards in Inicio */
+.quick-action-card {
+  background-color: #ffffff;
+  border: 1px solid var(--hospital-border-color);
+  border-radius: 10px;
+  padding: 1rem 1.15rem;
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  text-decoration: none;
+  color: var(--hospital-text-main);
+  transition: all 0.15s ease-in-out;
+  cursor: pointer;
+}
+
+.quick-action-card:hover {
+  border-color: var(--hospital-green-primary);
+  background-color: var(--hospital-green-subtle);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+}
+
+.quick-action-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  background-color: var(--hospital-green-light);
+  color: var(--hospital-green-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.15rem;
+  flex-shrink: 0;
+}
+
+.quick-action-text {
+  font-size: 0.88rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.quick-action-sub {
+  font-size: 0.75rem;
+  color: var(--hospital-text-muted);
+}
+
+/* Responsive adjustments */
+@media (max-width: 991.98px) {
+  .hospital-sidebar {
+    transform: translateX(-100%);
+  }
+
+  .hospital-sidebar.show-mobile {
+    transform: translateX(0);
+  }
+
+  .hospital-main-wrapper {
+    margin-left: 0;
+  }
+
+  .sidebar-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 1030;
+  }
+
+  .hospital-search-wrapper {
+    width: 240px;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .hospital-topbar {
+    padding: 0 1rem;
+  }
+  .hospital-content {
+    padding: 1rem;
+  }
+  .hospital-search-wrapper {
+    display: none;
+  }
+}
