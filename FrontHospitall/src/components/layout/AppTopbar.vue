@@ -10,11 +10,16 @@ import { useUiStore } from '@/stores/ui'
 const uiStore = useUiStore()
 
 const isAdmin = computed(() => uiStore.currentRole === 'admin')
+const isMedico = computed(() => uiStore.currentRole === 'medico')
 
 const searchPlaceholder = computed(() => {
-  return isAdmin.value
-    ? 'Buscar especialidad, médico o usuario...'
-    : 'Buscar turno, médico o paciente...'
+  if (isAdmin.value) {
+    return 'Buscar especialidad, médico o usuario...'
+  }
+  if (isMedico.value) {
+    return 'Buscar turno o paciente...'
+  }
+  return 'Buscar turno, médico o paciente...'
 })
 
 const handleSearch = () => {
@@ -68,9 +73,9 @@ const handleSearch = () => {
       <div class="hospital-topbar-profile">
         <div
           class="hospital-avatar-sm"
-          :style="isAdmin ? { backgroundColor: 'var(--hospital-blue-primary)' } : undefined"
+          :style="isAdmin ? { backgroundColor: 'var(--hospital-blue-primary)' } : (isMedico ? { backgroundColor: 'var(--hospital-amber-primary)' } : undefined)"
         >
-          <i :class="['bi', isAdmin ? 'bi-shield-check' : 'bi-person']"></i>
+          <i :class="['bi', isAdmin ? 'bi-shield-check' : (isMedico ? 'bi-stethoscope' : 'bi-person')]"></i>
         </div>
         <div class="d-none d-md-block">
           <div class="hospital-topbar-name">

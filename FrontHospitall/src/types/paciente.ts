@@ -17,6 +17,8 @@ export interface Paciente {
   observaciones?: string
   estado?: 'activo' | 'inactivo'
   ultimoTurno?: string
+  ultimaAtencion?: string
+  contactoEmergencia?: string
 }
 
 export interface PacienteFilter {

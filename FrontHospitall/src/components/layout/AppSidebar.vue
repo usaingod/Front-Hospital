@@ -29,6 +29,7 @@ const activeRole = computed<UserRole>(() => {
 })
 
 const isAdmin = computed(() => activeRole.value === 'admin')
+const isMedico = computed(() => activeRole.value === 'medico')
 
 // Opciones de navegación de Secretaría (4 opciones)
 const secretariaNavItems = [
@@ -46,9 +47,30 @@ const adminNavItems = [
   { name: 'Usuarios', path: '/admin/usuarios', icon: 'bi-people-gear' },
 ]
 
+// Opciones de navegación de Médico (estrictamente 3 opciones)
+const medicoNavItems = [
+  { name: 'Inicio', path: '/medico/inicio', icon: 'bi-grid-1x2' },
+  { name: 'Turnos', path: '/medico/turnos', icon: 'bi-calendar3' },
+  { name: 'Pacientes', path: '/medico/pacientes', icon: 'bi-people' },
+]
+
 // Lista reactiva de navegación según el perfil activo
 const currentNavItems = computed(() => {
-  return isAdmin.value ? adminNavItems : secretariaNavItems
+  if (isAdmin.value) return adminNavItems
+  if (isMedico.value) return medicoNavItems
+  return secretariaNavItems
+})
+
+const brandSubtitle = computed(() => {
+  if (isAdmin.value) return 'Panel Administrador'
+  if (isMedico.value) return 'Panel Médico'
+  return 'Panel Secretaría'
+})
+
+const navCategory = computed(() => {
+  if (isAdmin.value) return 'Administración'
+  if (isMedico.value) return 'Atención Médica'
+  return 'Menú Principal'
 })
 
 // Control del menú desplegable del selector de perfil
@@ -76,6 +98,8 @@ const selectProfile = (newRole: UserRole) => {
 
   if (newRole === 'admin') {
     router.push('/admin/inicio')
+  } else if (newRole === 'medico') {
+    router.push('/medico/inicio')
   } else {
     router.push('/secretaria/inicio')
   }
@@ -111,6 +135,7 @@ const handleLogout = () => {
     :class="{
       'show-mobile': uiStore.isMobileSidebarOpen,
       'theme-admin': isAdmin,
+      'theme-medico': isMedico,
     }"
     aria-label="Navegación lateral del hospital"
   >
@@ -123,7 +148,7 @@ const handleLogout = () => {
         <div>
           <div class="hospital-brand-title">Gestión Hospitalaria</div>
           <div class="hospital-brand-subtitle">
-            {{ isAdmin ? 'Panel Administrador' : 'Panel Secretaría' }}
+            {{ brandSubtitle }}
           </div>
         </div>
       </div>
@@ -131,7 +156,7 @@ const handleLogout = () => {
       <!-- Enlaces de navegación -->
       <nav class="hospital-sidebar-nav" aria-label="Menú principal de navegación">
         <div class="hospital-nav-category">
-          {{ isAdmin ? 'Administración' : 'Menú Principal' }}
+          {{ navCategory }}
         </div>
         <router-link
           v-for="item in currentNavItems"
@@ -161,9 +186,9 @@ const handleLogout = () => {
         >
           <div
             class="hospital-avatar"
-            :style="isAdmin ? { backgroundColor: 'var(--hospital-blue-primary)' } : undefined"
+            :style="isAdmin ? { backgroundColor: 'var(--hospital-blue-primary)' } : (isMedico ? { backgroundColor: 'var(--hospital-amber-primary)' } : undefined)"
           >
-            <i :class="['bi', isAdmin ? 'bi-shield-check' : 'bi-person']"></i>
+            <i :class="['bi', isAdmin ? 'bi-shield-check' : (isMedico ? 'bi-stethoscope' : 'bi-person')]"></i>
           </div>
           <div class="hospital-profile-info">
             <div class="hospital-profile-name" :title="uiStore.activeProfile.name">
@@ -176,7 +201,7 @@ const handleLogout = () => {
           <i class="bi bi-chevron-down dropdown-chevron"></i>
         </button>
 
-        <!-- Menú flotante del selector -->
+        <!-- Menú flotante del selector con los tres perfiles -->
         <div
           v-if="isProfileDropdownOpen"
           class="profile-dropdown-menu"
@@ -189,7 +214,7 @@ const handleLogout = () => {
           <button
             type="button"
             class="profile-dropdown-item"
-            :class="{ active: !isAdmin }"
+            :class="{ active: activeRole === 'secretaria' }"
             role="menuitem"
             @click="selectProfile('secretaria')"
           >
@@ -200,14 +225,14 @@ const handleLogout = () => {
               <div class="profile-item-title">Secretaría</div>
               <div class="profile-item-desc">Turnos, pacientes y horarios</div>
             </div>
-            <i v-if="!isAdmin" class="bi bi-check2 profile-item-check"></i>
+            <i v-if="activeRole === 'secretaria'" class="bi bi-check2 profile-item-check"></i>
           </button>
 
           <!-- Opción: Administrador -->
           <button
             type="button"
             class="profile-dropdown-item"
-            :class="{ active: isAdmin }"
+            :class="{ active: activeRole === 'admin' }"
             role="menuitem"
             @click="selectProfile('admin')"
           >
@@ -218,7 +243,25 @@ const handleLogout = () => {
               <div class="profile-item-title">Administrador</div>
               <div class="profile-item-desc">Especialidades, médicos y usuarios</div>
             </div>
-            <i v-if="isAdmin" class="bi bi-check2 profile-item-check"></i>
+            <i v-if="activeRole === 'admin'" class="bi bi-check2 profile-item-check"></i>
+          </button>
+
+          <!-- Opción: Médico -->
+          <button
+            type="button"
+            class="profile-dropdown-item"
+            :class="{ active: activeRole === 'medico' }"
+            role="menuitem"
+            @click="selectProfile('medico')"
+          >
+            <div class="profile-item-icon amber">
+              <i class="bi bi-stethoscope"></i>
+            </div>
+            <div class="profile-item-details">
+              <div class="profile-item-title">Médico</div>
+              <div class="profile-item-desc">Mis turnos y pacientes</div>
+            </div>
+            <i v-if="activeRole === 'medico'" class="bi bi-check2 profile-item-check"></i>
           </button>
         </div>
       </div>

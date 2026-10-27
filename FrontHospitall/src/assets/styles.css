@@ -34,6 +34,22 @@
   --hospital-blue-badge-bg: #dbeafe;
   --hospital-blue-badge-text: #1e40af;
 
+  /* Paleta Amarillo / Dorado Médico */
+  --hospital-amber-sidebar: #382904;
+  --hospital-amber-sidebar-hover: #4d3806;
+  --hospital-amber-sidebar-active: #664a08;
+  --hospital-amber-sidebar-border: #443205;
+
+  --hospital-amber-primary: #b45309;
+  --hospital-amber-primary-hover: #92400e;
+  --hospital-amber-primary-active: #78350f;
+
+  --hospital-amber-light: #fef3c7;
+  --hospital-amber-subtle: #fefce8;
+  --hospital-amber-border: #fde68a;
+  --hospital-amber-badge-bg: #fef3c7;
+  --hospital-amber-badge-text: #92400e;
+
   /* Fondos y Neutros */
   --hospital-bg: #f8fafc;
   --hospital-card-bg: #ffffff;
@@ -380,6 +396,11 @@ body {
   color: #ffffff;
 }
 
+.profile-item-icon.amber {
+  background: var(--hospital-amber-primary);
+  color: #ffffff;
+}
+
 .profile-item-details {
   flex-grow: 1;
   min-width: 0;
@@ -518,6 +539,218 @@ body {
 
 .theme-admin .modal-overlay {
   background-color: rgba(11, 37, 69, 0.45);
+}
+
+/* ==========================================================
+   TEMA MÉDICO (Paleta Amarilla / Dorada)
+   ========================================================== */
+.hospital-sidebar.theme-medico {
+  background-color: var(--hospital-amber-sidebar);
+  border-right-color: var(--hospital-amber-sidebar-border);
+}
+
+.hospital-sidebar.theme-medico .hospital-brand-icon {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fde047;
+}
+
+.hospital-sidebar.theme-medico .hospital-brand-subtitle {
+  color: #fde047;
+}
+
+.hospital-sidebar.theme-medico .hospital-nav-link:hover {
+  background-color: var(--hospital-amber-sidebar-hover);
+  color: #ffffff;
+}
+
+.hospital-sidebar.theme-medico .hospital-nav-link:hover i {
+  color: #fde047;
+}
+
+.hospital-sidebar.theme-medico .hospital-nav-link.active {
+  background-color: var(--hospital-amber-sidebar-active);
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+.hospital-sidebar.theme-medico .hospital-nav-link.active i {
+  color: #fde047;
+}
+
+.hospital-sidebar.theme-medico .hospital-avatar {
+  background: var(--hospital-amber-primary);
+}
+
+.hospital-sidebar.theme-medico .hospital-profile-role {
+  color: #fde047;
+}
+
+/* Modificaciones de componentes bajo tema Médico */
+.theme-medico .hospital-avatar-sm {
+  background: var(--hospital-amber-primary);
+}
+
+.theme-medico .btn-hospital-primary {
+  background-color: var(--hospital-amber-primary);
+  border-color: var(--hospital-amber-primary);
+  color: #ffffff;
+}
+
+.theme-medico .btn-hospital-primary:hover,
+.theme-medico .btn-hospital-primary:focus {
+  background-color: var(--hospital-amber-primary-hover);
+  border-color: var(--hospital-amber-primary-hover);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(180, 83, 9, 0.25);
+}
+
+.theme-medico .btn-hospital-outline-primary {
+  border-color: var(--hospital-amber-primary);
+  color: var(--hospital-amber-primary);
+}
+
+.theme-medico .btn-hospital-outline-primary:hover {
+  background-color: var(--hospital-amber-light);
+  color: var(--hospital-amber-primary-hover);
+}
+
+.theme-medico .hospital-search-input:focus {
+  border-color: var(--hospital-amber-primary);
+  box-shadow: 0 0 0 3px rgba(180, 83, 9, 0.15);
+}
+
+.theme-medico .hospital-action-btn:hover {
+  background-color: var(--hospital-amber-light);
+  color: var(--hospital-amber-primary);
+  border-color: var(--hospital-amber-border);
+}
+
+.theme-medico .form-control:focus,
+.theme-medico .form-select:focus {
+  border-color: var(--hospital-amber-primary);
+  box-shadow: 0 0 0 3px rgba(180, 83, 9, 0.15);
+}
+
+.theme-medico .hospital-table th {
+  background-color: var(--hospital-amber-subtle);
+}
+
+.theme-medico .hospital-modal-header {
+  background-color: var(--hospital-amber-subtle);
+}
+
+.theme-medico .hospital-modal-title i {
+  color: var(--hospital-amber-primary) !important;
+}
+
+.theme-medico .btn-action-icon:hover {
+  background-color: var(--hospital-amber-light);
+  color: var(--hospital-amber-primary);
+  border-color: var(--hospital-amber-border);
+}
+
+.theme-medico .hospital-empty-icon {
+  background-color: var(--hospital-amber-light);
+  color: var(--hospital-amber-primary);
+}
+
+.theme-medico .modal-overlay {
+  background-color: rgba(56, 41, 4, 0.45);
+}
+
+/* Pestañas de navegación para Historia Clínica y Detalle de Paciente */
+.medico-nav-tabs {
+  border-bottom: 2px solid var(--hospital-border-color);
+  display: flex;
+  gap: 0.35rem;
+  margin-bottom: 1.25rem;
+  padding: 0;
+  list-style: none;
+  overflow-x: auto;
+}
+
+.medico-tab-btn {
+  padding: 0.65rem 1.15rem;
+  font-size: 0.88rem;
+  font-weight: 500;
+  border: none;
+  background: transparent;
+  color: var(--hospital-text-secondary);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+  transition: all 0.15s ease-in-out;
+}
+
+.medico-tab-btn:hover {
+  color: var(--hospital-amber-primary);
+  background-color: var(--hospital-amber-subtle);
+  border-radius: 6px 6px 0 0;
+}
+
+.medico-tab-btn.active {
+  color: var(--hospital-amber-primary);
+  font-weight: 600;
+  border-bottom-color: var(--hospital-amber-primary);
+  background-color: #ffffff;
+}
+
+/* Grilla horaria de 30 minutos del médico */
+.medico-agenda-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.medico-agenda-slot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.65rem 1rem;
+  background-color: #ffffff;
+  border: 1px solid var(--hospital-border-color);
+  border-radius: 8px;
+  transition: all 0.15s ease-in-out;
+}
+
+.medico-agenda-slot:hover {
+  border-color: var(--hospital-amber-border);
+  background-color: var(--hospital-amber-subtle);
+}
+
+.medico-agenda-slot.selected {
+  border-color: var(--hospital-amber-primary);
+  background-color: var(--hospital-amber-light);
+  box-shadow: 0 0 0 2px rgba(180, 83, 9, 0.2);
+}
+
+.medico-slot-time {
+  font-family: monospace;
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: var(--hospital-text-main);
+  background: #f1f5f9;
+  padding: 0.25rem 0.6rem;
+  border-radius: 6px;
+  min-width: 65px;
+  text-align: center;
+}
+
+.medico-slot-content {
+  flex-grow: 1;
+  padding: 0 1rem;
+  font-size: 0.85rem;
+  color: var(--hospital-text-muted);
+}
+
+/* Badges de estado en tema médico */
+.badge-status.amber {
+  background-color: var(--hospital-amber-light);
+  color: var(--hospital-amber-badge-text);
 }
 
 /* Tarjeta expandible de especialidades en Admin Inicio */

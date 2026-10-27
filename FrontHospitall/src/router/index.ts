@@ -1,29 +1,36 @@
+
 import { createRouter, createWebHistory } from 'vue-router'
+
 import SecretariaLayout from '@/layouts/SecretariaLayout.vue'
 import AdminLayout from '@/layouts/AdminLayout.vue'
+import MedicoLayout from '@/layouts/MedicoLayout.vue'
+
 import InicioView from '@/views/secretaria/InicioView.vue'
 import TurnosView from '@/views/secretaria/TurnosView.vue'
 import PacientesView from '@/views/secretaria/PacientesView.vue'
 import MedicosView from '@/views/secretaria/MedicosView.vue'
+
 import AdminHomeView from '@/views/admin/AdminHomeView.vue'
 import SpecialtiesView from '@/views/admin/SpecialtiesView.vue'
 import AdminDoctorsView from '@/views/admin/AdminDoctorsView.vue'
 import UsersView from '@/views/admin/UsersView.vue'
+
+import MedicoInicioView from '@/views/medico/MedicoInicioView.vue'
+import MedicoTurnosView from '@/views/medico/MedicoTurnosView.vue'
+import MedicoPacientesView from '@/views/medico/MedicoPacientesView.vue'
+
 import { useUiStore } from '@/stores/ui'
 
-/**
- * Configuración de Vue Router (Criterio 4: Router)
- * Integra las cuatro vistas existentes de Secretaría y las cuatro nuevas vistas de Administrador.
- * Gestiona navegación limpia mediante layouts compartidos e sincronización del rol activo.
- */
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
+
   routes: [
     {
       path: '/',
       redirect: '/secretaria/inicio',
     },
-    // Rutas del perfil Secretaría (identidad verde)
+
+    // Perfil Secretaria
     {
       path: '/secretaria',
       component: SecretariaLayout,
@@ -51,7 +58,8 @@ const router = createRouter({
         },
       ],
     },
-    // Rutas del perfil Administrador (identidad azul)
+
+    // Perfil Administrador
     {
       path: '/admin',
       component: AdminLayout,
@@ -79,7 +87,32 @@ const router = createRouter({
         },
       ],
     },
-    // Captura de rutas no reconocidas
+
+    // Perfil Médico
+    {
+      path: '/medico',
+      component: MedicoLayout,
+      redirect: '/medico/inicio',
+      children: [
+        {
+          path: 'inicio',
+          name: 'medico-inicio',
+          component: MedicoInicioView,
+        },
+        {
+          path: 'turnos',
+          name: 'medico-turnos',
+          component: MedicoTurnosView,
+        },
+        {
+          path: 'pacientes',
+          name: 'medico-pacientes',
+          component: MedicoPacientesView,
+        },
+      ],
+    },
+
+    // Rutas desconocidas
     {
       path: '/:pathMatch(.*)*',
       redirect: '/secretaria/inicio',
@@ -87,7 +120,7 @@ const router = createRouter({
   ],
 })
 
-// Sincronizar automáticamente el rol visual de Pinia tras cada navegación
+// Sincronizar el perfil visual con la ruta actual
 router.afterEach((to) => {
   const uiStore = useUiStore()
   uiStore.syncRoleWithRoute(to.path)
