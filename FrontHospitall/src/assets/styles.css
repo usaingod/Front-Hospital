@@ -34,6 +34,22 @@
   --hospital-blue-badge-bg: #dbeafe;
   --hospital-blue-badge-text: #1e40af;
 
+  /* Paleta Rojo / Bordó Enfermería */
+  --hospital-red-sidebar: #3b0a0a;
+  --hospital-red-sidebar-hover: #5c1111;
+  --hospital-red-sidebar-active: #7a1818;
+  --hospital-red-sidebar-border: #4a0e0e;
+
+  --hospital-red-primary: #b91c1c;
+  --hospital-red-primary-hover: #991b1b;
+  --hospital-red-primary-active: #7f1d1d;
+
+  --hospital-red-light: #fee2e2;
+  --hospital-red-subtle: #fff5f5;
+  --hospital-red-border: #fca5a5;
+  --hospital-red-badge-bg: #fee2e2;
+  --hospital-red-badge-text: #991b1b;
+
   /* Paleta Amarillo / Dorado Médico */
   --hospital-amber-sidebar: #382904;
   --hospital-amber-sidebar-hover: #4d3806;
@@ -398,6 +414,11 @@ body {
 
 .profile-item-icon.amber {
   background: var(--hospital-amber-primary);
+  color: #ffffff;
+}
+
+.profile-item-icon.red {
+  background: var(--hospital-red-primary);
   color: #ffffff;
 }
 
@@ -1631,6 +1652,273 @@ body {
 .quick-action-sub {
   font-size: 0.75rem;
   color: var(--hospital-text-muted);
+}
+
+/* ==========================================================
+   TEMA ENFERMERÍA (Paleta Rojo / Bordó)
+   ========================================================== */
+.hospital-sidebar.theme-enfermeria {
+  background-color: var(--hospital-red-sidebar);
+  border-right-color: var(--hospital-red-sidebar-border);
+}
+
+.hospital-sidebar.theme-enfermeria .hospital-brand-icon {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fca5a5;
+}
+
+.hospital-sidebar.theme-enfermeria .hospital-brand-subtitle {
+  color: #fca5a5;
+}
+
+.hospital-sidebar.theme-enfermeria .hospital-nav-link:hover {
+  background-color: var(--hospital-red-sidebar-hover);
+  color: #ffffff;
+}
+
+.hospital-sidebar.theme-enfermeria .hospital-nav-link:hover i {
+  color: #fca5a5;
+}
+
+.hospital-sidebar.theme-enfermeria .hospital-nav-link.active {
+  background-color: var(--hospital-red-sidebar-active);
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+.hospital-sidebar.theme-enfermeria .hospital-nav-link.active i {
+  color: #fca5a5;
+}
+
+.hospital-sidebar.theme-enfermeria .hospital-avatar {
+  background: var(--hospital-red-primary);
+}
+
+.hospital-sidebar.theme-enfermeria .hospital-profile-role {
+  color: #fca5a5;
+}
+
+/* Modificaciones de componentes bajo tema Enfermería */
+.theme-enfermeria .hospital-avatar-sm {
+  background: var(--hospital-red-primary);
+}
+
+.theme-enfermeria .btn-hospital-primary {
+  background-color: var(--hospital-red-primary);
+  border-color: var(--hospital-red-primary);
+  color: #ffffff;
+}
+
+.theme-enfermeria .btn-hospital-primary:hover,
+.theme-enfermeria .btn-hospital-primary:focus {
+  background-color: var(--hospital-red-primary-hover);
+  border-color: var(--hospital-red-primary-hover);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(185, 28, 28, 0.25);
+}
+
+.theme-enfermeria .btn-hospital-outline-primary {
+  border-color: var(--hospital-red-primary);
+  color: var(--hospital-red-primary);
+}
+
+.theme-enfermeria .btn-hospital-outline-primary:hover {
+  background-color: var(--hospital-red-light);
+  color: var(--hospital-red-primary-hover);
+}
+
+.theme-enfermeria .hospital-search-input:focus {
+  border-color: var(--hospital-red-primary);
+  box-shadow: 0 0 0 3px rgba(185, 28, 28, 0.15);
+}
+
+.theme-enfermeria .hospital-action-btn:hover {
+  background-color: var(--hospital-red-light);
+  color: var(--hospital-red-primary);
+  border-color: var(--hospital-red-border);
+}
+
+.theme-enfermeria .form-control:focus,
+.theme-enfermeria .form-select:focus {
+  border-color: var(--hospital-red-primary);
+  box-shadow: 0 0 0 3px rgba(185, 28, 28, 0.15);
+}
+
+.theme-enfermeria .hospital-table th {
+  background-color: var(--hospital-red-subtle);
+}
+
+.theme-enfermeria .hospital-modal-header {
+  background-color: var(--hospital-red-subtle);
+}
+
+.theme-enfermeria .hospital-modal-title i {
+  color: var(--hospital-red-primary) !important;
+}
+
+.theme-enfermeria .btn-action-icon:hover {
+  background-color: var(--hospital-red-light);
+  color: var(--hospital-red-primary);
+  border-color: var(--hospital-red-border);
+}
+
+.theme-enfermeria .hospital-empty-icon {
+  background-color: var(--hospital-red-light);
+  color: var(--hospital-red-primary);
+}
+
+.theme-enfermeria .modal-overlay {
+  background-color: rgba(59, 10, 10, 0.45);
+}
+
+/* Pestañas de navegación para Enfermería */
+.enfermeria-nav-tabs {
+  border-bottom: 2px solid var(--hospital-border-color);
+  display: flex;
+  gap: 0.35rem;
+  margin-bottom: 1.25rem;
+  padding: 0;
+  list-style: none;
+  overflow-x: auto;
+}
+
+.enfermeria-tab-btn {
+  padding: 0.65rem 1.15rem;
+  font-size: 0.88rem;
+  font-weight: 500;
+  border: none;
+  background: transparent;
+  color: var(--hospital-text-secondary);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+  transition: all 0.15s ease-in-out;
+}
+
+.enfermeria-tab-btn:hover {
+  color: var(--hospital-red-primary);
+  background-color: var(--hospital-red-subtle);
+  border-radius: 6px 6px 0 0;
+}
+
+.enfermeria-tab-btn.active {
+  color: var(--hospital-red-primary);
+  font-weight: 600;
+  border-bottom-color: var(--hospital-red-primary);
+  background-color: #ffffff;
+}
+
+/* Badge de estado de cama */
+.badge-cama-disponible {
+  background-color: #d1e7dd;
+  color: #0f5132;
+  padding: 0.3rem 0.7rem;
+  border-radius: 20px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.badge-cama-ocupada {
+  background-color: var(--hospital-red-light);
+  color: var(--hospital-red-badge-text);
+  padding: 0.3rem 0.7rem;
+  border-radius: 20px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.badge-cama-limpieza {
+  background-color: #fef3c7;
+  color: #92400e;
+  padding: 0.3rem 0.7rem;
+  border-radius: 20px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+/* Tarjeta visual de cama (distribución de sala) */
+.cama-visual-card {
+  border-radius: 10px;
+  border: 2px solid transparent;
+  padding: 0.85rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+  min-width: 100px;
+}
+
+.cama-visual-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.cama-visual-card.disponible {
+  background-color: #f0fdf4;
+  border-color: #86efac;
+}
+
+.cama-visual-card.ocupada {
+  background-color: var(--hospital-red-subtle);
+  border-color: var(--hospital-red-border);
+}
+
+.cama-visual-card.en_limpieza {
+  background-color: #fffbeb;
+  border-color: #fcd34d;
+}
+
+.cama-visual-icon {
+  font-size: 1.75rem;
+  margin-bottom: 0.4rem;
+  display: block;
+}
+
+.cama-visual-card.disponible .cama-visual-icon {
+  color: #16a34a;
+}
+
+.cama-visual-card.ocupada .cama-visual-icon {
+  color: var(--hospital-red-primary);
+}
+
+.cama-visual-card.en_limpieza .cama-visual-icon {
+  color: #d97706;
+}
+
+.cama-visual-num {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--hospital-text-main);
+}
+
+.cama-visual-label {
+  font-size: 0.72rem;
+  margin-top: 0.2rem;
+}
+
+.cama-visual-card.disponible .cama-visual-label {
+  color: #16a34a;
+}
+
+.cama-visual-card.ocupada .cama-visual-label {
+  color: var(--hospital-red-primary);
+}
+
+.cama-visual-card.en_limpieza .cama-visual-label {
+  color: #d97706;
 }
 
 /* Responsive adjustments */

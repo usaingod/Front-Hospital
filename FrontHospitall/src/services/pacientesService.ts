@@ -45,4 +45,21 @@ export const pacientesService = {
     // TODO: Conectar con backend cuando los endpoints estén disponibles.
     return null
   },
+
+  /**
+   * Cancelar la totalidad del saldo adeudado por un paciente.
+   * La operación en el backend establece:
+   *   appointmentBalance = 0
+   *   supplyBalance = 0
+   * Punto de integración futuro: PATCH /api/pacientes/:id/pagar o POST /api/pacientes/:id/cancelar-saldo
+   */
+  async cancelarSaldoTotal(_id: number | string): Promise<Paciente | null> {
+    // TODO: Conectar con el backend cuando los endpoints estén disponibles.
+    // La mutación se ejecuta exclusivamente en el servidor sobre el modelo Patient:
+    // await prisma.patient.update({
+    //   where: { id: _id },
+    //   data: { appointmentBalance: 0, supplyBalance: 0 }
+    // })
+    return null
+  },
 }

@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 
-export type UserRole = 'secretaria' | 'admin' | 'medico'
+export type UserRole = 'secretaria' | 'admin' | 'medico' | 'enfermeria'
 
 export interface ProfileInfo {
   name: string
@@ -12,12 +12,12 @@ export interface ProfileInfo {
 
 /**
  * Store global de Pinia para la gestión del estado de la interfaz de usuario (UI)
- * y el contexto de alternancia visual de perfiles (Secretaría / Administrador / Médico).
- * 
+ * y el contexto de alternancia visual de perfiles (Secretaría / Administrador / Médico / Enfermería).
+ *
  * Justificación de su uso (Criterio 6):
  * - Permite sincronizar la barra superior (Topbar) y la barra lateral (Sidebar)
  *   sin necesidad de prop-drilling en los layouts.
- * - Gestiona el perfil visual activo seleccionado (Secretaría, Administrador o Médico)
+ * - Gestiona el perfil visual activo seleccionado (Secretaría, Administrador, Médico o Enfermería)
  *   para actualizar avatares, nombres y colores en tiempo real sin recargas.
  * - Sincroniza el menú responsive móvil y los indicadores del sistema.
  * - NO almacena datos ficticios ni actúa como base de datos simulada ni gestiona
@@ -54,10 +54,19 @@ export const useUiStore = defineStore('ui', () => {
     initials: 'CM',
   })
 
+  // Perfil representativo para Enfermería
+  const nursingProfile = ref<ProfileInfo>({
+    name: 'Servicio de Enfermería',
+    role: 'Cuidados e Internación',
+    facility: 'Hospital Central',
+    initials: 'EN',
+  })
+
   // Perfil visual activo según el rol seleccionado
   const activeProfile = computed<ProfileInfo>(() => {
     if (currentRole.value === 'admin') return adminProfile.value
     if (currentRole.value === 'medico') return doctorProfile.value
+    if (currentRole.value === 'enfermeria') return nursingProfile.value
     return secretaryProfile.value
   })
 
@@ -77,7 +86,7 @@ export const useUiStore = defineStore('ui', () => {
     isMobileSidebarOpen.value = true
   }
 
-  // Cambiar rol visual (Secretaría / Administrador / Médico)
+  // Cambiar rol visual (Secretaría / Administrador / Médico / Enfermería)
   const setRole = (role: UserRole) => {
     currentRole.value = role
   }
@@ -88,6 +97,8 @@ export const useUiStore = defineStore('ui', () => {
       currentRole.value = 'admin'
     } else if (path.startsWith('/medico')) {
       currentRole.value = 'medico'
+    } else if (path.startsWith('/enfermeria')) {
+      currentRole.value = 'enfermeria'
     } else if (path.startsWith('/secretaria')) {
       currentRole.value = 'secretaria'
     }
@@ -99,6 +110,7 @@ export const useUiStore = defineStore('ui', () => {
     secretaryProfile,
     adminProfile,
     doctorProfile,
+    nursingProfile,
     activeProfile,
     unreadNotificationsCount,
     toggleSidebar,

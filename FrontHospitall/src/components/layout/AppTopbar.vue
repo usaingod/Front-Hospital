@@ -4,13 +4,15 @@ import { useUiStore } from '@/stores/ui'
 
 /**
  * Componente: Barra Superior (Topbar)
- * Sincronizado dinámicamente con el perfil activo (Secretaría / Administrador).
+ * Sincronizado dinámicamente con el perfil activo
+ * (Secretaría / Administrador / Médico / Enfermería).
  * Incluye el botón de menú móvil, barra de búsqueda general y notificaciones visuales.
  */
 const uiStore = useUiStore()
 
 const isAdmin = computed(() => uiStore.currentRole === 'admin')
 const isMedico = computed(() => uiStore.currentRole === 'medico')
+const isEnfermeria = computed(() => uiStore.currentRole === 'enfermeria')
 
 const searchPlaceholder = computed(() => {
   if (isAdmin.value) {
@@ -19,7 +21,24 @@ const searchPlaceholder = computed(() => {
   if (isMedico.value) {
     return 'Buscar turno o paciente...'
   }
+  if (isEnfermeria.value) {
+    return 'Buscar paciente o cama...'
+  }
   return 'Buscar turno, médico o paciente...'
+})
+
+const topbarAvatarStyle = computed(() => {
+  if (isAdmin.value) return { backgroundColor: 'var(--hospital-blue-primary)' }
+  if (isMedico.value) return { backgroundColor: 'var(--hospital-amber-primary)' }
+  if (isEnfermeria.value) return { backgroundColor: 'var(--hospital-red-primary)' }
+  return undefined
+})
+
+const topbarAvatarIcon = computed(() => {
+  if (isAdmin.value) return 'bi-shield-check'
+  if (isMedico.value) return 'bi-stethoscope'
+  if (isEnfermeria.value) return 'bi-heart-pulse'
+  return 'bi-person'
 })
 
 const handleSearch = () => {
@@ -73,9 +92,9 @@ const handleSearch = () => {
       <div class="hospital-topbar-profile">
         <div
           class="hospital-avatar-sm"
-          :style="isAdmin ? { backgroundColor: 'var(--hospital-blue-primary)' } : (isMedico ? { backgroundColor: 'var(--hospital-amber-primary)' } : undefined)"
+          :style="topbarAvatarStyle"
         >
-          <i :class="['bi', isAdmin ? 'bi-shield-check' : (isMedico ? 'bi-stethoscope' : 'bi-person')]"></i>
+          <i :class="['bi', topbarAvatarIcon]"></i>
         </div>
         <div class="d-none d-md-block">
           <div class="hospital-topbar-name">

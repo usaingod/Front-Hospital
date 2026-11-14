@@ -4,20 +4,27 @@ import { createRouter, createWebHistory } from 'vue-router'
 import SecretariaLayout from '@/layouts/SecretariaLayout.vue'
 import AdminLayout from '@/layouts/AdminLayout.vue'
 import MedicoLayout from '@/layouts/MedicoLayout.vue'
+import EnfermeriaLayout from '@/layouts/EnfermeriaLayout.vue'
 
 import InicioView from '@/views/secretaria/InicioView.vue'
 import TurnosView from '@/views/secretaria/TurnosView.vue'
 import PacientesView from '@/views/secretaria/PacientesView.vue'
 import MedicosView from '@/views/secretaria/MedicosView.vue'
+import InternacionView from '@/views/secretaria/InternacionView.vue'
 
 import AdminHomeView from '@/views/admin/AdminHomeView.vue'
 import SpecialtiesView from '@/views/admin/SpecialtiesView.vue'
 import AdminDoctorsView from '@/views/admin/AdminDoctorsView.vue'
+import AdminCamasView from '@/views/admin/AdminCamasView.vue'
 import UsersView from '@/views/admin/UsersView.vue'
 
 import MedicoInicioView from '@/views/medico/MedicoInicioView.vue'
 import MedicoTurnosView from '@/views/medico/MedicoTurnosView.vue'
 import MedicoPacientesView from '@/views/medico/MedicoPacientesView.vue'
+
+import EnfermeriaInicioView from '@/views/enfermeria/EnfermeriaInicioView.vue'
+import EnfermeriaCamasView from '@/views/enfermeria/EnfermeriaCamasView.vue'
+import EnfermeriaPacienteView from '@/views/enfermeria/EnfermeriaPacienteView.vue'
 
 import { useUiStore } from '@/stores/ui'
 
@@ -56,6 +63,11 @@ const router = createRouter({
           name: 'secretaria-medicos',
           component: MedicosView,
         },
+        {
+          path: 'internacion',
+          name: 'secretaria-internacion',
+          component: InternacionView,
+        },
       ],
     },
 
@@ -79,6 +91,11 @@ const router = createRouter({
           path: 'medicos',
           name: 'admin-medicos',
           component: AdminDoctorsView,
+        },
+        {
+          path: 'camas',
+          name: 'admin-camas',
+          component: AdminCamasView,
         },
         {
           path: 'usuarios',
@@ -108,6 +125,30 @@ const router = createRouter({
           path: 'pacientes',
           name: 'medico-pacientes',
           component: MedicoPacientesView,
+        },
+      ],
+    },
+
+    // Perfil Enfermería
+    {
+      path: '/enfermeria',
+      component: EnfermeriaLayout,
+      redirect: '/enfermeria/inicio',
+      children: [
+        {
+          path: 'inicio',
+          name: 'enfermeria-inicio',
+          component: EnfermeriaInicioView,
+        },
+        {
+          path: 'camas',
+          name: 'enfermeria-camas',
+          component: EnfermeriaCamasView,
+        },
+        {
+          path: 'paciente',
+          name: 'enfermeria-paciente',
+          component: EnfermeriaPacienteView,
         },
       ],
     },

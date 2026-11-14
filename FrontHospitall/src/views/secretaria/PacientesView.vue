@@ -1,18 +1,28 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import StatCard from '@/components/common/StatCard.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import BaseModal from '@/components/common/BaseModal.vue'
-import type { Paciente } from '@/types/paciente'
+import {
+  type Paciente,
+  type CreatePacienteDTO,
+  calcularSaldoTotal,
+} from '@/types/paciente'
+import { pacientesService } from '@/services/pacientesService'
 
 /**
  * Vista de Pacientes (Secretaría)
- * Criterios 1, 2, 3, 5, 8, 9:
- * - Padrón general de pacientes preparado para recibir datos
- * - Componentes reutilizables: PageHeader, StatCard, EmptyState, BaseModal
- * - Directivas v-if, v-else, v-for, v-model, :class, :disabled
- * - Sin registros ficticios
+ * Criterios 1, 2, 3, 5, 7, 8, 9, 10:
+ * - Padrón general de pacientes preparado para recibir datos del backend.
+ * - Formulario de alta/edición con campo unificado de Saldo pendiente ($).
+ *   (En el backend se compone de appointmentBalance + supplyBalance).
+ * - Ficha de detalle de paciente con apartado «Estado de cuenta»:
+ *   * Saldo pendiente total.
+ *   * Indicador visual de deuda pendiente vs. «Al día».
+ *   * Botón «Marcar como pagado» con diálogo de confirmación (sin ingreso manual de monto ni pagos parciales).
+ * - Componentes reutilizables: PageHeader, StatCard, EmptyState, BaseModal.
+ * - Sin registros ficticios, mocks ni simulaciones engañosas de persistencia.
  */
 
 // Colección reactiva de pacientes (inicia vacía según la regla de no incorporar datos ficticios)
@@ -54,13 +64,47 @@ const statCards = [
 const searchQuery = ref('')
 const filterObraSocial = ref('')
 const filterEstado = ref('')
-const sortOrder = ref('apellido')
 
-// Modal y formulario de registro/edición de paciente
+// Opciones dinámicas de obras sociales derivadas de los pacientes reales
+const obrasSocialesDisponibles = computed<string[]>(() => {
+  const set = new Set(pacientes.value.map((p) => p.obraSocial).filter(Boolean))
+  return Array.from(set).sort()
+})
+
+// Filtrado computado reactivo
+const filteredPacientes = computed(() => {
+  return pacientes.value.filter((p) => {
+    const q = searchQuery.value.trim().toLowerCase()
+    const fullName = `${p.nombre} ${p.apellido}`.toLowerCase()
+    const matchesQuery =
+      !q ||
+      fullName.includes(q) ||
+      p.dni.includes(q) ||
+      p.telefono.toLowerCase().includes(q)
+
+    const matchesObraSocial =
+      !filterObraSocial.value || p.obraSocial === filterObraSocial.value
+
+    const matchesEstado = !filterEstado.value || p.estado === filterEstado.value
+
+    return matchesQuery && matchesObraSocial && matchesEstado
+  })
+})
+
+const resetFilters = () => {
+  searchQuery.value = ''
+  filterObraSocial.value = ''
+  filterEstado.value = ''
+}
+
+// ============================================================
+// MODAL 1: REGISTRAR O EDITAR PACIENTE
+// ============================================================
 const isPatientModalOpen = ref(false)
 const modalMode = ref<'crear' | 'editar'>('crear')
+const editingPatientId = ref<number | string | null>(null)
 
-// Formulario vacío con los campos requeridos
+// Formulario reactivo con campo unificado de Saldo pendiente ($)
 const patientForm = ref({
   nombre: '',
   apellido: '',
@@ -72,10 +116,12 @@ const patientForm = ref({
   obraSocial: '',
   numeroAfiliado: '',
   observaciones: '',
+  saldoTotal: 0,
 })
 
 const openNewPatientModal = () => {
   modalMode.value = 'crear'
+  editingPatientId.value = null
   patientForm.value = {
     nombre: '',
     apellido: '',
@@ -87,25 +133,120 @@ const openNewPatientModal = () => {
     obraSocial: '',
     numeroAfiliado: '',
     observaciones: '',
+    saldoTotal: 0,
+  }
+  isPatientModalOpen.value = true
+}
+
+const openEditPatientModal = (paciente: Paciente) => {
+  modalMode.value = 'editar'
+  editingPatientId.value = paciente.id
+  patientForm.value = {
+    nombre: paciente.nombre || '',
+    apellido: paciente.apellido || '',
+    dni: paciente.dni || '',
+    fechaNacimiento: paciente.fechaNacimiento || '',
+    telefono: paciente.telefono || '',
+    email: paciente.email || '',
+    direccion: paciente.direccion || '',
+    obraSocial: paciente.obraSocial || '',
+    numeroAfiliado: paciente.numeroAfiliado || '',
+    observaciones: paciente.observaciones || '',
+    saldoTotal: calcularSaldoTotal(paciente),
   }
   isPatientModalOpen.value = true
 }
 
 const closePatientModal = () => {
   isPatientModalOpen.value = false
+  editingPatientId.value = null
 }
 
-const handlePatientSubmit = () => {
-  // Confirmación clara de estado pendiente de integración sin resultados engañosos
-  alert('Formulario de paciente validado. La persistencia se completará al integrar la API del backend.')
+const handlePatientSubmit = async () => {
+  // Validación básica visual
+  if (!patientForm.value.nombre.trim() || !patientForm.value.apellido.trim()) {
+    alert('Por favor, ingresá al menos el nombre y apellido del paciente.')
+    return
+  }
+
+  // En esta etapa de preparación sin conexión, se documenta la llamada al servicio:
+  // const payload: CreatePacienteDTO = { ...patientForm.value }
+  // if (modalMode.value === 'crear') await pacientesService.createPaciente(payload)
+  // else await pacientesService.updatePaciente(editingPatientId.value!, payload)
+
+  alert(
+    `Formulario de paciente (${modalMode.value === 'crear' ? 'Alta' : 'Edición'}) validado. El saldo total adeudado ($${patientForm.value.saldoTotal || 0}) se sincronizará con el backend al integrar la API.`
+  )
   closePatientModal()
 }
 
-const resetFilters = () => {
-  searchQuery.value = ''
-  filterObraSocial.value = ''
-  filterEstado.value = ''
-  sortOrder.value = 'apellido'
+// ============================================================
+// MODAL 2: DETALLE DEL PACIENTE (INFORMACIÓN Y ESTADO DE CUENTA)
+// ============================================================
+const isDetailModalOpen = ref(false)
+const selectedPatient = ref<Paciente | null>(null)
+
+const verDetallePaciente = (paciente: Paciente) => {
+  selectedPatient.value = paciente
+  isDetailModalOpen.value = true
+}
+
+const closeDetailModal = () => {
+  isDetailModalOpen.value = false
+  selectedPatient.value = null
+}
+
+// Saldo total computado del paciente actualmente seleccionado
+const saldoTotalSeleccionado = computed<number>(() => {
+  return calcularSaldoTotal(selectedPatient.value || undefined)
+})
+
+// Determina si el paciente tiene deuda pendiente (> 0)
+const tieneSaldoPendiente = computed<boolean>(() => {
+  return saldoTotalSeleccionado.value > 0
+})
+
+// ============================================================
+// MODAL 3: CONFIRMACIÓN DE PAGO TOTAL («MARCAR COMO PAGADO»)
+// ============================================================
+const isConfirmPaymentModalOpen = ref(false)
+const isProcessingPayment = ref(false)
+
+const openConfirmPaymentModal = () => {
+  if (!selectedPatient.value || !tieneSaldoPendiente.value) return
+  isConfirmPaymentModalOpen.value = true
+}
+
+const closeConfirmPaymentModal = () => {
+  isConfirmPaymentModalOpen.value = false
+}
+
+const handleConfirmPayment = async () => {
+  if (!selectedPatient.value) return
+  isProcessingPayment.value = true
+
+  try {
+    // Llamada preparada hacia la capa de servicios sin llamadas HTTP activas en esta etapa:
+    await pacientesService.cancelarSaldoTotal(selectedPatient.value.id)
+
+    // Notificación informativa: no simular mutaciones directas en el frontend sin confirmación real del servidor
+    alert(
+      `Operación de pago total registrada para el paciente ${selectedPatient.value.nombre} ${selectedPatient.value.apellido}. Al conectar con la API, el backend establecerá appointmentBalance = 0 y supplyBalance = 0, actualizando la cuenta a «Al día».`
+    )
+    closeConfirmPaymentModal()
+  } finally {
+    isProcessingPayment.value = false
+  }
+}
+
+// Formateador visual de moneda en pesos argentinos
+const formatCurrency = (val: number = 0): string => {
+  return new Intl.NumberFormat('es-AR', {
+    style: 'currency',
+    currency: 'ARS',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(val)
 }
 </script>
 
@@ -114,11 +255,12 @@ const resetFilters = () => {
     <!-- Encabezado de la página -->
     <PageHeader
       title="Pacientes"
-      description="Padrón general de pacientes, consulta de historias de turnos y registro de coberturas médicas."
+      description="Padrón general de pacientes, consulta de fichas personales, coberturas médicas y estado de cuenta."
     >
       <button
         type="button"
         class="btn-hospital-primary"
+        title="Registrar un nuevo paciente en el padrón"
         @click="openNewPatientModal"
       >
         <i class="bi bi-person-plus"></i>
@@ -144,40 +286,64 @@ const resetFilters = () => {
     </div>
 
     <!-- Barra de búsqueda y filtros visuales -->
-    <div class="hospital-filter-bar">
+    <div class="hospital-filter-bar mb-4">
       <div class="row g-2 align-items-end">
         <div class="col-12 col-md-5">
-          <label class="form-label small mb-1">Buscar paciente</label>
+          <label for="buscar-paciente" class="form-label small mb-1">Buscar paciente</label>
           <div class="input-group input-group-sm">
             <span class="input-group-text bg-white">
               <i class="bi bi-search text-muted"></i>
             </span>
             <input
+              id="buscar-paciente"
               v-model="searchQuery"
               type="text"
               class="form-control"
               placeholder="Buscar por nombre, apellido, DNI o teléfono..."
+              aria-label="Buscar paciente"
             />
+            <button
+              v-if="searchQuery"
+              class="btn btn-outline-secondary"
+              type="button"
+              title="Borrar búsqueda"
+              @click="searchQuery = ''"
+            >
+              <i class="bi bi-x"></i>
+            </button>
           </div>
         </div>
 
         <div class="col-12 col-sm-6 col-md-3">
-          <label class="form-label small mb-1">Obra social / Cobertura</label>
-          <select v-model="filterObraSocial" class="form-select form-select-sm">
+          <label for="filtro-obra-social" class="form-label small mb-1">Obra social / Cobertura</label>
+          <select
+            id="filtro-obra-social"
+            v-model="filterObraSocial"
+            class="form-select form-select-sm"
+            aria-label="Filtrar por obra social"
+          >
             <option value="">Todas las obras sociales</option>
+            <option v-for="os in obrasSocialesDisponibles" :key="os" :value="os">
+              {{ os }}
+            </option>
           </select>
         </div>
 
         <div class="col-12 col-sm-6 col-md-2">
-          <label class="form-label small mb-1">Estado</label>
-          <select v-model="filterEstado" class="form-select form-select-sm">
+          <label for="filtro-estado-paciente" class="form-label small mb-1">Estado</label>
+          <select
+            id="filtro-estado-paciente"
+            v-model="filterEstado"
+            class="form-select form-select-sm"
+            aria-label="Filtrar por estado"
+          >
             <option value="">Todos los estados</option>
             <option value="activo">Activo</option>
             <option value="inactivo">Inactivo</option>
           </select>
         </div>
 
-        <div class="col-12 col-md-2 d-flex gap-2">
+        <div class="col-12 col-md-2 d-flex">
           <button
             type="button"
             class="btn btn-sm btn-outline-secondary w-100"
@@ -192,71 +358,89 @@ const resetFilters = () => {
     </div>
 
     <!-- Tabla de Pacientes con directivas v-if / v-else / v-for -->
-    <div class="hospital-card">
+    <div class="hospital-card mb-0">
       <div class="hospital-card-header">
         <div class="hospital-card-title">
           <i class="bi bi-people text-success"></i>
           <span>Listado de Pacientes</span>
         </div>
-        <div class="d-flex align-items-center gap-2">
-          <!-- Botones visuales para acciones de registros -->
-          <span class="text-muted small me-2 d-none d-md-inline">Acciones disponibles para registros:</span>
-          <button
-            type="button"
-            class="btn btn-sm btn-outline-secondary"
-            title="Consultar ficha de paciente (acción visual)"
-            disabled
-          >
-            <i class="bi bi-eye"></i>
-            <span class="d-none d-sm-inline ms-1">Consultar</span>
-          </button>
-          <button
-            type="button"
-            class="btn btn-sm btn-outline-secondary"
-            title="Editar datos de paciente (acción visual)"
-            disabled
-          >
-            <i class="bi bi-pencil"></i>
-            <span class="d-none d-sm-inline ms-1">Editar</span>
-          </button>
-          <button
-            type="button"
-            class="btn btn-sm btn-outline-secondary"
-            title="Eliminar paciente (acción visual)"
-            disabled
-          >
-            <i class="bi bi-trash"></i>
-            <span class="d-none d-sm-inline ms-1">Eliminar</span>
-          </button>
-        </div>
+        <span class="badge bg-light text-muted border">
+          {{ filteredPacientes.length }} pacientes
+        </span>
       </div>
 
       <div class="hospital-card-body p-0">
         <div class="hospital-table-wrapper border-0 rounded-0">
-          <table class="hospital-table">
+          <table class="hospital-table mb-0">
             <thead>
               <tr>
                 <th scope="col">Nombre y apellido</th>
-                <th scope="col" style="width: 140px;">DNI</th>
-                <th scope="col" style="width: 150px;">Teléfono</th>
-                <th scope="col" style="width: 160px;">Fecha de nacimiento</th>
-                <th scope="col" style="width: 150px;">Último turno</th>
-                <th scope="col" class="text-center" style="width: 120px;">Acciones</th>
+                <th scope="col" style="width: 130px;">DNI</th>
+                <th scope="col" style="width: 140px;">Teléfono</th>
+                <th scope="col" style="width: 160px;">Obra social</th>
+                <th scope="col" style="width: 150px;">Estado de cuenta</th>
+                <th scope="col" class="text-center" style="width: 110px;">Acciones</th>
               </tr>
             </thead>
             <tbody>
               <!-- v-if para listar pacientes cuando se incorpore el backend -->
-              <template v-if="pacientes.length > 0">
-                <tr v-for="paciente in pacientes" :key="paciente.id">
-                  <td>{{ paciente.apellido }}, {{ paciente.nombre }}</td>
-                  <td>{{ paciente.dni }}</td>
-                  <td>{{ paciente.telefono }}</td>
-                  <td>{{ paciente.fechaNacimiento }}</td>
-                  <td>{{ paciente.ultimoTurno || '—' }}</td>
+              <template v-if="filteredPacientes.length > 0">
+                <tr v-for="paciente in filteredPacientes" :key="paciente.id">
+                  <td>
+                    <div class="fw-semibold text-dark">
+                      {{ paciente.apellido }}, {{ paciente.nombre }}
+                    </div>
+                  </td>
+                  <td class="text-muted">{{ paciente.dni }}</td>
+                  <td class="text-muted small">{{ paciente.telefono || '—' }}</td>
+                  <td>
+                    <span class="text-dark small">
+                      {{ paciente.obraSocial || 'Particular' }}
+                    </span>
+                  </td>
+                  <td>
+                    <!-- Saldo pendiente total unificado -->
+                    <span
+                      v-if="calcularSaldoTotal(paciente) > 0"
+                      class="badge bg-danger-subtle text-danger border border-danger-subtle d-inline-flex align-items-center gap-1"
+                      title="Saldo pendiente de pago"
+                    >
+                      <i class="bi bi-exclamation-circle-fill" style="font-size: 0.65rem;"></i>
+                      {{ formatCurrency(calcularSaldoTotal(paciente)) }}
+                    </span>
+                    <span
+                      v-else
+                      class="badge-cama-disponible d-inline-flex align-items-center gap-1"
+                      title="Sin saldo pendiente"
+                    >
+                      <i class="bi bi-check-circle-fill" style="font-size: 0.65rem;"></i>
+                      Al día
+                    </span>
+                  </td>
                   <td class="text-center">
-                    <button class="btn btn-sm btn-outline-secondary py-0 px-2" disabled>
-                      Ver
-                    </button>
+                    <div class="d-inline-flex gap-1">
+                      <!-- Ver ficha y estado de cuenta -->
+                      <button
+                        type="button"
+                        class="btn-action-icon"
+                        title="Consultar ficha y estado de cuenta"
+                        aria-label="Ver ficha"
+                        @click="verDetallePaciente(paciente)"
+                      >
+                        <i class="bi bi-eye"></i>
+                      </button>
+
+                      <!-- Editar paciente -->
+                      <button
+                        type="button"
+                        class="btn-action-icon"
+                        title="Editar datos del paciente"
+                        aria-label="Editar"
+                        @click="openEditPatientModal(paciente)"
+                      >
+                        <i class="bi bi-pencil"></i>
+                      </button>
+                    </div>
                   </td>
                 </tr>
               </template>
@@ -288,7 +472,9 @@ const resetFilters = () => {
       </div>
     </div>
 
-    <!-- Modal Reutilizable: Registrar o Editar Paciente -->
+    <!-- ======================================================
+         MODAL 1: REGISTRAR O EDITAR PACIENTE
+    ====================================================== -->
     <BaseModal
       :is-open="isPatientModalOpen"
       :title="modalMode === 'crear' ? 'Registrar Nuevo Paciente' : 'Editar Paciente'"
@@ -296,39 +482,52 @@ const resetFilters = () => {
       size="lg"
       @close="closePatientModal"
     >
-      <form @submit.prevent="handlePatientSubmit">
+      <form id="form-paciente" novalidate @submit.prevent="handlePatientSubmit">
         <!-- Campos requeridos: Nombre, Apellido, DNI, Fecha Nacimiento -->
         <div class="row g-3 mb-3">
           <div class="col-12 col-md-6">
-            <label class="form-label">Nombre</label>
+            <label for="form-nombre" class="form-label">
+              Nombre <span class="text-danger">*</span>
+            </label>
             <input
+              id="form-nombre"
               v-model="patientForm.nombre"
               type="text"
               class="form-control"
               placeholder="Ingresá el nombre"
+              required
             />
           </div>
           <div class="col-12 col-md-6">
-            <label class="form-label">Apellido</label>
+            <label for="form-apellido" class="form-label">
+              Apellido <span class="text-danger">*</span>
+            </label>
             <input
+              id="form-apellido"
               v-model="patientForm.apellido"
               type="text"
               class="form-control"
               placeholder="Ingresá el apellido"
+              required
             />
           </div>
           <div class="col-12 col-md-6">
-            <label class="form-label">DNI</label>
+            <label for="form-dni" class="form-label">
+              DNI / Documento <span class="text-danger">*</span>
+            </label>
             <input
+              id="form-dni"
               v-model="patientForm.dni"
               type="text"
               class="form-control"
               placeholder="Ingresá el número de documento"
+              required
             />
           </div>
           <div class="col-12 col-md-6">
-            <label class="form-label">Fecha de nacimiento</label>
+            <label for="form-fecha-nac" class="form-label">Fecha de nacimiento</label>
             <input
+              id="form-fecha-nac"
               v-model="patientForm.fechaNacimiento"
               type="date"
               class="form-control"
@@ -339,8 +538,9 @@ const resetFilters = () => {
         <!-- Teléfono, Email, Dirección -->
         <div class="row g-3 mb-3">
           <div class="col-12 col-md-6">
-            <label class="form-label">Teléfono</label>
+            <label for="form-telefono" class="form-label">Teléfono</label>
             <input
+              id="form-telefono"
               v-model="patientForm.telefono"
               type="tel"
               class="form-control"
@@ -348,8 +548,9 @@ const resetFilters = () => {
             />
           </div>
           <div class="col-12 col-md-6">
-            <label class="form-label">Email</label>
+            <label for="form-email" class="form-label">Email</label>
             <input
+              id="form-email"
               v-model="patientForm.email"
               type="email"
               class="form-control"
@@ -357,8 +558,9 @@ const resetFilters = () => {
             />
           </div>
           <div class="col-12">
-            <label class="form-label">Dirección</label>
+            <label for="form-direccion" class="form-label">Dirección</label>
             <input
+              id="form-direccion"
               v-model="patientForm.direccion"
               type="text"
               class="form-control"
@@ -370,8 +572,9 @@ const resetFilters = () => {
         <!-- Cobertura médica: Obra Social y Número de Afiliado -->
         <div class="row g-3 mb-3">
           <div class="col-12 col-md-6">
-            <label class="form-label">Obra social</label>
+            <label for="form-obra-social" class="form-label">Obra social</label>
             <input
+              id="form-obra-social"
               v-model="patientForm.obraSocial"
               type="text"
               class="form-control"
@@ -379,8 +582,9 @@ const resetFilters = () => {
             />
           </div>
           <div class="col-12 col-md-6">
-            <label class="form-label">Número de afiliado</label>
+            <label for="form-afiliado" class="form-label">Número de afiliado</label>
             <input
+              id="form-afiliado"
               v-model="patientForm.numeroAfiliado"
               type="text"
               class="form-control"
@@ -389,10 +593,35 @@ const resetFilters = () => {
           </div>
         </div>
 
+        <!-- Apartado: Saldo pendiente ($) -->
+        <div class="row g-3 mb-3">
+          <div class="col-12 col-md-6">
+            <label for="form-saldo" class="form-label fw-bold text-dark">
+              Saldo pendiente ($)
+            </label>
+            <div class="input-group">
+              <span class="input-group-text bg-white text-muted">$</span>
+              <input
+                id="form-saldo"
+                v-model.number="patientForm.saldoTotal"
+                type="number"
+                min="0"
+                step="0.01"
+                class="form-control"
+                placeholder="0"
+              />
+            </div>
+            <div class="form-text text-muted">
+              Representa el saldo total adeudado por el paciente (suma de turnos e insumos).
+            </div>
+          </div>
+        </div>
+
         <!-- Observaciones -->
         <div class="mb-2">
-          <label class="form-label">Observaciones</label>
+          <label for="form-observaciones" class="form-label">Observaciones</label>
           <textarea
+            id="form-observaciones"
             v-model="patientForm.observaciones"
             class="form-control"
             rows="3"
@@ -404,18 +633,238 @@ const resetFilters = () => {
       <template #footer>
         <button
           type="button"
-          class="btn btn-outline-secondary"
+          class="btn-hospital-outline"
           @click="closePatientModal"
+        >
+          Cancelar
+        </button>
+        <button
+          type="submit"
+          form="form-paciente"
+          class="btn-hospital-primary"
+        >
+          <i class="bi bi-save"></i>
+          <span>Guardar paciente</span>
+        </button>
+      </template>
+    </BaseModal>
+
+    <!-- ======================================================
+         MODAL 2: DETALLE DEL PACIENTE Y ESTADO DE CUENTA
+    ====================================================== -->
+    <BaseModal
+      :is-open="isDetailModalOpen"
+      title="Ficha del Paciente"
+      icon="bi-person-badge"
+      icon-color-class="text-success"
+      size="lg"
+      @close="closeDetailModal"
+    >
+      <div v-if="selectedPatient" class="p-1">
+        <!-- Encabezado con avatar e identificación -->
+        <div class="d-flex align-items-center gap-3 p-3 border rounded bg-light mb-4">
+          <div
+            class="hospital-avatar"
+            style="width: 48px; height: 48px; font-size: 1.25rem; background-color: var(--hospital-green-primary);"
+          >
+            {{ selectedPatient.nombre.charAt(0) }}{{ selectedPatient.apellido.charAt(0) }}
+          </div>
+          <div class="flex-grow-1">
+            <h3 class="h5 fw-bold mb-0 text-dark">
+              {{ selectedPatient.apellido }}, {{ selectedPatient.nombre }}
+            </h3>
+            <div class="d-flex align-items-center gap-2 mt-1 flex-wrap">
+              <span class="badge bg-white text-muted border">
+                DNI: {{ selectedPatient.dni }}
+              </span>
+              <span
+                class="badge"
+                :class="selectedPatient.estado === 'inactivo' ? 'bg-secondary' : 'bg-success-subtle text-success border border-success-subtle'"
+              >
+                {{ selectedPatient.estado === 'inactivo' ? 'Inactivo' : 'Activo' }}
+              </span>
+              <span v-if="selectedPatient.obraSocial" class="badge bg-white text-muted border">
+                {{ selectedPatient.obraSocial }}
+                <span v-if="selectedPatient.numeroAfiliado">({{ selectedPatient.numeroAfiliado }})</span>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ======================================================
+             NUEVO APARTADO: ESTADO DE CUENTA
+        ====================================================== -->
+        <div class="card border mb-4">
+          <div class="card-header bg-light py-2 px-3 d-flex align-items-center justify-content-between">
+            <div class="d-flex align-items-center gap-2">
+              <i class="bi bi-wallet2 text-success fs-5"></i>
+              <span class="fw-bold text-dark small text-uppercase" style="letter-spacing: 0.05em;">
+                Estado de cuenta
+              </span>
+            </div>
+            <!-- Indicador visual según saldo -->
+            <span
+              v-if="tieneSaldoPendiente"
+              class="badge bg-danger-subtle text-danger border border-danger-subtle d-inline-flex align-items-center gap-1 px-2 py-1"
+            >
+              <i class="bi bi-exclamation-triangle-fill" style="font-size: 0.7rem;"></i>
+              Deuda pendiente
+            </span>
+            <span
+              v-else
+              class="badge-cama-disponible d-inline-flex align-items-center gap-1 px-2 py-1"
+            >
+              <i class="bi bi-check-circle-fill" style="font-size: 0.7rem;"></i>
+              Al día
+            </span>
+          </div>
+
+          <div class="card-body p-3">
+            <div class="row g-3 align-items-center">
+              <!-- Saldo pendiente total -->
+              <div class="col-12 col-sm-6">
+                <div class="text-muted small mb-1">Saldo pendiente total</div>
+                <div
+                  class="fs-3 fw-bold"
+                  :class="tieneSaldoPendiente ? 'text-danger' : 'text-success'"
+                >
+                  {{ formatCurrency(saldoTotalSeleccionado) }}
+                </div>
+                <div class="text-muted small mt-1">
+                  <span v-if="tieneSaldoPendiente">
+                    Importe adeudado correspondiente a turnos e insumos.
+                  </span>
+                  <span v-else>
+                    El paciente no posee deudas registradas en el sistema.
+                  </span>
+                </div>
+              </div>
+
+              <!-- Acción: Marcar como pagado (únicamente si tiene saldo > 0) -->
+              <div class="col-12 col-sm-6 text-sm-end">
+                <div v-if="tieneSaldoPendiente">
+                  <button
+                    type="button"
+                    class="btn-hospital-primary d-inline-flex align-items-center gap-2"
+                    title="Registrar la cancelación total de la deuda"
+                    @click="openConfirmPaymentModal"
+                  >
+                    <i class="bi bi-check2-circle"></i>
+                    <span>Marcar como pagado</span>
+                  </button>
+                  <div class="text-muted small mt-1">
+                    Cancela la totalidad del saldo adeudado.
+                  </div>
+                </div>
+                <div v-else class="text-muted small d-inline-flex align-items-center gap-1">
+                  <i class="bi bi-shield-check text-success fs-5"></i>
+                  <span class="text-success fw-semibold">Sin acciones pendientes de pago</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Datos personales y de contacto -->
+        <div class="row g-3">
+          <div class="col-12 col-sm-6">
+            <div class="p-2 border rounded bg-light">
+              <div class="text-muted small">Teléfono</div>
+              <div class="fw-semibold text-dark">{{ selectedPatient.telefono || '—' }}</div>
+            </div>
+          </div>
+          <div class="col-12 col-sm-6">
+            <div class="p-2 border rounded bg-light">
+              <div class="text-muted small">Correo electrónico</div>
+              <div class="fw-semibold text-dark">{{ selectedPatient.email || '—' }}</div>
+            </div>
+          </div>
+          <div class="col-12 col-sm-6">
+            <div class="p-2 border rounded bg-light">
+              <div class="text-muted small">Fecha de nacimiento</div>
+              <div class="fw-semibold text-dark">{{ selectedPatient.fechaNacimiento || '—' }}</div>
+            </div>
+          </div>
+          <div class="col-12 col-sm-6">
+            <div class="p-2 border rounded bg-light">
+              <div class="text-muted small">Dirección</div>
+              <div class="fw-semibold text-dark">{{ selectedPatient.direccion || '—' }}</div>
+            </div>
+          </div>
+          <div v-if="selectedPatient.observaciones" class="col-12">
+            <div class="p-2 border rounded bg-light">
+              <div class="text-muted small">Observaciones</div>
+              <div class="text-dark small mt-1">{{ selectedPatient.observaciones }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <template #footer>
+        <button
+          type="button"
+          class="btn-hospital-outline"
+          @click="closeDetailModal"
+        >
+          Cerrar
+        </button>
+      </template>
+    </BaseModal>
+
+    <!-- ======================================================
+         MODAL 3: CONFIRMAR PAGO TOTAL («MARCAR COMO PAGADO»)
+    ====================================================== -->
+    <BaseModal
+      :is-open="isConfirmPaymentModalOpen"
+      title="Confirmar Cancelación de Saldo"
+      icon="bi-cash-coin"
+      icon-color-class="text-success"
+      size="md"
+      @close="closeConfirmPaymentModal"
+    >
+      <div v-if="selectedPatient" class="p-1">
+        <p class="text-dark mb-3">
+          ¿Confirmás el registro de cancelación total de deuda para el paciente
+          <strong>{{ selectedPatient.nombre }} {{ selectedPatient.apellido }}</strong>?
+        </p>
+
+        <!-- Detalle del importe sin posibilidad de ingreso manual ni pago parcial -->
+        <div class="p-3 border rounded bg-light mb-3 text-center">
+          <div class="text-muted small mb-1">Monto total a cancelar</div>
+          <div class="fs-2 fw-bold text-success">
+            {{ formatCurrency(saldoTotalSeleccionado) }}
+          </div>
+          <div class="small text-muted mt-1">
+            Esta operación cancela la deuda acumulada de turnos e insumos.
+          </div>
+        </div>
+
+        <div class="alert alert-light border py-2 px-3 d-flex align-items-start gap-2 mb-0">
+          <i class="bi bi-info-circle text-success fs-5 mt-1"></i>
+          <div class="small text-muted">
+            <strong>Restricción del sistema:</strong>
+            No se admiten pagos parciales ni ingreso manual de importes. La confirmación solicitará al backend establecer ambos saldos en cero (<code>appointmentBalance = 0</code> y <code>supplyBalance = 0</code>).
+          </div>
+        </div>
+      </div>
+
+      <template #footer>
+        <button
+          type="button"
+          class="btn-hospital-outline"
+          :disabled="isProcessingPayment"
+          @click="closeConfirmPaymentModal"
         >
           Cancelar
         </button>
         <button
           type="button"
           class="btn-hospital-primary"
-          @click="handlePatientSubmit"
+          :disabled="isProcessingPayment"
+          @click="handleConfirmPayment"
         >
-          <i class="bi bi-save"></i>
-          <span>Guardar paciente</span>
+          <i class="bi bi-check2"></i>
+          <span>Confirmar pago total</span>
         </button>
       </template>
     </BaseModal>

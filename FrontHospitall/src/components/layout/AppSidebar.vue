@@ -6,10 +6,11 @@ import { useUiStore, type UserRole } from '@/stores/ui'
 /**
  * Componente Reutilizable: Barra Lateral (Sidebar)
  * Criterios 1, 3, 4, 5, 6, 8:
- * - Adapta su paleta y opciones según el rol activo (Secretaría en verde, Administrador en azul).
- * - Incorpora el Selector de Perfil en la esquina inferior izquierda.
+ * - Adapta su paleta y opciones según el rol activo
+ *   (Secretaría en verde, Administrador en azul, Médico en dorado, Enfermería en rojo/bordó).
+ * - Incorpora el Selector de Perfil con los cuatro perfiles disponibles.
  * - Navega mediante Vue Router sin recarga innecesaria de página.
- * - Respeta estrictamente las 4 opciones de cada perfil sin elementos sobrantes.
+ * - Respeta las opciones de cada perfil sin elementos sobrantes.
  */
 const props = withDefaults(
   defineProps<{
@@ -30,21 +31,24 @@ const activeRole = computed<UserRole>(() => {
 
 const isAdmin = computed(() => activeRole.value === 'admin')
 const isMedico = computed(() => activeRole.value === 'medico')
+const isEnfermeria = computed(() => activeRole.value === 'enfermeria')
 
-// Opciones de navegación de Secretaría (4 opciones)
+// Opciones de navegación de Secretaría (5 opciones)
 const secretariaNavItems = [
   { name: 'Inicio', path: '/secretaria/inicio', icon: 'bi-grid-1x2' },
   { name: 'Turnos', path: '/secretaria/turnos', icon: 'bi-calendar3' },
   { name: 'Pacientes', path: '/secretaria/pacientes', icon: 'bi-people' },
   { name: 'Médicos', path: '/secretaria/medicos', icon: 'bi-person-badge' },
+  { name: 'Internación', path: '/secretaria/internacion', icon: 'bi-hospital' },
 ]
 
-// Opciones de navegación de Administrador (estrictamente 4 opciones)
+// Opciones de navegación de Administrador (5 opciones)
 const adminNavItems = [
   { name: 'Inicio', path: '/admin/inicio', icon: 'bi-grid-1x2' },
   { name: 'Especialidades', path: '/admin/especialidades', icon: 'bi-award' },
   { name: 'Médicos', path: '/admin/medicos', icon: 'bi-person-badge' },
-  { name: 'Usuarios', path: '/admin/usuarios', icon: 'bi-people-gear' },
+  { name: 'Camas', path: '/admin/camas', icon: 'bi-hospital' },
+  { name: 'Usuarios', path: '/admin/usuarios', icon: 'bi-person' },
 ]
 
 // Opciones de navegación de Médico (estrictamente 3 opciones)
@@ -54,22 +58,32 @@ const medicoNavItems = [
   { name: 'Pacientes', path: '/medico/pacientes', icon: 'bi-people' },
 ]
 
+// Opciones de navegación de Enfermería (3 secciones)
+const enfermeriaNavItems = [
+  { name: 'Inicio', path: '/enfermeria/inicio', icon: 'bi-grid-1x2' },
+  { name: 'Camas', path: '/enfermeria/camas', icon: 'bi-hospital' },
+  { name: 'Paciente', path: '/enfermeria/paciente', icon: 'bi-person-heart' },
+]
+
 // Lista reactiva de navegación según el perfil activo
 const currentNavItems = computed(() => {
   if (isAdmin.value) return adminNavItems
   if (isMedico.value) return medicoNavItems
+  if (isEnfermeria.value) return enfermeriaNavItems
   return secretariaNavItems
 })
 
 const brandSubtitle = computed(() => {
   if (isAdmin.value) return 'Panel Administrador'
   if (isMedico.value) return 'Panel Médico'
+  if (isEnfermeria.value) return 'Panel Enfermería'
   return 'Panel Secretaría'
 })
 
 const navCategory = computed(() => {
   if (isAdmin.value) return 'Administración'
   if (isMedico.value) return 'Atención Médica'
+  if (isEnfermeria.value) return 'Enfermería e Internación'
   return 'Menú Principal'
 })
 
@@ -100,6 +114,8 @@ const selectProfile = (newRole: UserRole) => {
     router.push('/admin/inicio')
   } else if (newRole === 'medico') {
     router.push('/medico/inicio')
+  } else if (newRole === 'enfermeria') {
+    router.push('/enfermeria/inicio')
   } else {
     router.push('/secretaria/inicio')
   }
@@ -136,6 +152,7 @@ const handleLogout = () => {
       'show-mobile': uiStore.isMobileSidebarOpen,
       'theme-admin': isAdmin,
       'theme-medico': isMedico,
+      'theme-enfermeria': isEnfermeria,
     }"
     aria-label="Navegación lateral del hospital"
   >
@@ -186,9 +203,28 @@ const handleLogout = () => {
         >
           <div
             class="hospital-avatar"
-            :style="isAdmin ? { backgroundColor: 'var(--hospital-blue-primary)' } : (isMedico ? { backgroundColor: 'var(--hospital-amber-primary)' } : undefined)"
+            :style="
+              isAdmin
+                ? { backgroundColor: 'var(--hospital-blue-primary)' }
+                : isMedico
+                  ? { backgroundColor: 'var(--hospital-amber-primary)' }
+                  : isEnfermeria
+                    ? { backgroundColor: 'var(--hospital-red-primary)' }
+                    : undefined
+            "
           >
-            <i :class="['bi', isAdmin ? 'bi-shield-check' : (isMedico ? 'bi-stethoscope' : 'bi-person')]"></i>
+            <i
+              :class="[
+                'bi',
+                isAdmin
+                  ? 'bi-shield-check'
+                  : isMedico
+                    ? 'bi-stethoscope'
+                    : isEnfermeria
+                      ? 'bi-heart-pulse'
+                      : 'bi-person',
+              ]"
+            ></i>
           </div>
           <div class="hospital-profile-info">
             <div class="hospital-profile-name" :title="uiStore.activeProfile.name">
@@ -201,7 +237,7 @@ const handleLogout = () => {
           <i class="bi bi-chevron-down dropdown-chevron"></i>
         </button>
 
-        <!-- Menú flotante del selector con los tres perfiles -->
+        <!-- Menú flotante del selector con los cuatro perfiles -->
         <div
           v-if="isProfileDropdownOpen"
           class="profile-dropdown-menu"
@@ -262,6 +298,24 @@ const handleLogout = () => {
               <div class="profile-item-desc">Mis turnos y pacientes</div>
             </div>
             <i v-if="activeRole === 'medico'" class="bi bi-check2 profile-item-check"></i>
+          </button>
+
+          <!-- Opción: Enfermería -->
+          <button
+            type="button"
+            class="profile-dropdown-item"
+            :class="{ active: activeRole === 'enfermeria' }"
+            role="menuitem"
+            @click="selectProfile('enfermeria')"
+          >
+            <div class="profile-item-icon red">
+              <i class="bi bi-heart-pulse"></i>
+            </div>
+            <div class="profile-item-details">
+              <div class="profile-item-title">Enfermería</div>
+              <div class="profile-item-desc">Camas, pacientes y signos vitales</div>
+            </div>
+            <i v-if="activeRole === 'enfermeria'" class="bi bi-check2 profile-item-check"></i>
           </button>
         </div>
       </div>
