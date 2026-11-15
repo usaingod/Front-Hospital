@@ -3,7 +3,7 @@
  * Preparadas para la futura integración con los contratos de API del backend.
  */
 
-export type RolUsuario = 'Administrador' | 'Secretaria'
+export type RolUsuario = 'Administrador' | 'Secretaria' | 'Profesional' | 'Enfermero'
 
 export interface Usuario {
   id: number | string

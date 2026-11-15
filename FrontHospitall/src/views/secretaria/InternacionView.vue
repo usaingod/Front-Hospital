@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import StatCard from '@/components/common/StatCard.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
@@ -7,6 +7,12 @@ import BaseModal from '@/components/common/BaseModal.vue'
 import type { Cama, CamaFilter, EstadoCama, Internacion, CreateInternacionDTO } from '@/types/internacion'
 import type { Paciente } from '@/types/paciente'
 import type { Medico } from '@/types/medico'
+import { ApiError } from '@/services/api'
+import { billingService, type StayAccount } from '@/services/billingService'
+import { camasService, internacionService } from '@/services/camasService'
+import { pacientesService } from '@/services/pacientesService'
+import { protocolsService, type Protocol } from '@/services/protocolsService'
+import { api } from '@/services/api'
 
 /**
  * Vista de Internación (Secretaría)
@@ -21,47 +27,71 @@ import type { Medico } from '@/types/medico'
  * - Cumplimiento estricto de no incorporar datos ficticios (estructuras preparadas con estados vacíos).
  */
 
-// Colección reactiva de camas (inicia vacía según la regla de no incorporar datos ficticios)
 const camas = ref<Cama[]>([])
-
-// Colección de internaciones activas (inicia vacía para integración futura)
 const internaciones = ref<Internacion[]>([])
-
-// Pacientes y médicos para selección en formularios (inician vacíos)
 const pacientesDisponibles = ref<Paciente[]>([])
 const medicosTratantes = ref<Medico[]>([])
+const protocolos = ref<Protocol[]>([])
+const cuentaEstadia = ref<StayAccount | null>(null)
 
-// Tarjetas de resumen estadístico (sin números inventados)
-const statCards = [
+const loadData = async () => {
+  const [beds, stays, patients, professionals, protocols] = await Promise.all([
+    camasService.getAll(),
+    internacionService.getAll(),
+    pacientesService.getPacientes(),
+    api.get<{ id: string; firstName: string; lastName: string }[]>('/professionals'),
+    protocolsService.list().catch(() => [] as Protocol[]),
+  ])
+  camas.value = beds
+  internaciones.value = stays
+  pacientesDisponibles.value = patients
+  protocolos.value = protocols
+  medicosTratantes.value = professionals.map((p) => ({
+    id: p.id,
+    nombre: p.firstName,
+    apellido: p.lastName,
+    especialidad: '',
+    matricula: '',
+    estado: 'activo',
+  }))
+}
+
+onMounted(() => {
+  loadData().catch((err) => {
+    alert(err instanceof ApiError ? err.message : 'No se pudieron cargar las camas')
+  })
+})
+
+const statCards = computed(() => [
   {
     label: 'Total de camas',
     icon: 'bi-hospital',
     hint: 'Capacidad total registrada',
     colorClass: 'green' as const,
-    value: '—',
+    value: String(camas.value.length || '—'),
   },
   {
     label: 'Camas disponibles',
     icon: 'bi-check-circle',
     hint: 'Listas para asignar',
     colorClass: 'green' as const,
-    value: '—',
+    value: String(camas.value.filter((c) => c.estado === 'disponible').length || '—'),
   },
   {
     label: 'Camas ocupadas',
     icon: 'bi-person-fill',
     hint: 'Pacientes internados',
     colorClass: 'rose' as const,
-    value: '—',
+    value: String(camas.value.filter((c) => c.estado === 'ocupada').length || '—'),
   },
   {
     label: 'En limpieza',
     icon: 'bi-stars',
     hint: 'En acondicionamiento',
     colorClass: 'amber' as const,
-    value: '—',
+    value: String(camas.value.filter((c) => c.estado === 'en_limpieza').length || '—'),
   },
-]
+])
 
 // Filtros y búsqueda
 const filtros = ref<CamaFilter>({
@@ -136,13 +166,25 @@ const verDetalleCama = (cama: Cama) => {
   // Buscar internación asociada si la cama está ocupada
   selectedInternacion.value =
     internaciones.value.find((i) => i.camaId === cama.id || i.id === cama.internacionId) || null
+  cuentaEstadia.value = null
   isDetailModalOpen.value = true
+  if (selectedInternacion.value?.id) {
+    billingService
+      .stayAccount(selectedInternacion.value.id)
+      .then((account) => {
+        cuentaEstadia.value = account
+      })
+      .catch(() => {
+        cuentaEstadia.value = null
+      })
+  }
 }
 
 const cerrarModalDetalle = () => {
   isDetailModalOpen.value = false
   selectedCama.value = null
   selectedInternacion.value = null
+  cuentaEstadia.value = null
 }
 
 // ============================================================
@@ -154,6 +196,7 @@ const formIngreso = ref<CreateInternacionDTO>({
   camaId: '',
   fechaIngreso: '',
   diagnostico: '',
+  motivo: '',
   medicoTratanteId: '',
   observaciones: '',
 })
@@ -181,6 +224,7 @@ const abrirModalNuevoIngreso = (camaPreseleccionada?: Cama) => {
     camaId: camaPreseleccionada?.id || '',
     fechaIngreso: fechaHoraActual,
     diagnostico: '',
+    motivo: '',
     medicoTratanteId: '',
     observaciones: '',
   }
@@ -210,15 +254,19 @@ const validarFormularioIngreso = (): boolean => {
   return Object.keys(errores).length === 0
 }
 
-const handleIngresoSubmit = () => {
+const handleIngresoSubmit = async () => {
   if (!validarFormularioIngreso()) return
   if (isSubmitting.value) return
-
-  // Acción visual de confirmación sin inventar guardado ficticio ni realizar peticiones HTTP
-  alert(
-    'Registro de ingreso validado. La asignación persistente se comunicará con el backend en etapas posteriores.'
-  )
-  cerrarModalAsignar()
+  isSubmitting.value = true
+  try {
+    await internacionService.create({ ...formIngreso.value })
+    await loadData()
+    cerrarModalAsignar()
+  } catch (err) {
+    alert(err instanceof ApiError ? err.message : 'No se pudo registrar el ingreso')
+  } finally {
+    isSubmitting.value = false
+  }
 }
 </script>
 
@@ -539,9 +587,12 @@ const handleIngresoSubmit = () => {
             </div>
 
             <div class="col-12 col-sm-6">
-              <div class="text-muted small">Diagnóstico presuntivo / motivo</div>
+              <div class="text-muted small">Diagnóstico / motivo</div>
               <div class="fw-semibold text-dark">
                 {{ selectedInternacion.diagnostico || '—' }}
+              </div>
+              <div v-if="selectedInternacion.motivo" class="small text-muted">
+                Protocolo: {{ selectedInternacion.motivo }}
               </div>
             </div>
 
@@ -552,11 +603,46 @@ const handleIngresoSubmit = () => {
               </div>
             </div>
 
+            <div
+              v-if="selectedInternacion.protocolTasks && selectedInternacion.protocolTasks.length"
+              class="col-12"
+            >
+              <div class="text-muted small">Tareas de protocolo</div>
+              <ul class="mb-0 small ps-3">
+                <li v-for="task in selectedInternacion.protocolTasks" :key="task">{{ task }}</li>
+              </ul>
+            </div>
+
             <div v-if="selectedInternacion.observaciones" class="col-12">
               <div class="text-muted small">Observaciones clínicas</div>
               <p class="mb-0 text-dark small mt-1">
                 {{ selectedInternacion.observaciones }}
               </p>
+            </div>
+
+            <div class="col-12">
+              <div class="border rounded p-3 bg-white">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <div class="fw-semibold text-dark">
+                    <i class="bi bi-receipt me-1 text-success"></i>
+                    Cuenta de la estadía
+                  </div>
+                  <div class="fw-bold text-success">
+                    ${{ (cuentaEstadia?.total ?? 0).toLocaleString('es-AR') }}
+                  </div>
+                </div>
+                <div v-if="cuentaEstadia && cuentaEstadia.lines.length" class="small">
+                  <div
+                    v-for="line in cuentaEstadia.lines"
+                    :key="line.id"
+                    class="d-flex justify-content-between border-bottom py-1"
+                  >
+                    <span>{{ line.concept }}</span>
+                    <span>${{ line.amount.toLocaleString('es-AR') }}</span>
+                  </div>
+                </div>
+                <div v-else class="text-muted small">Sin cargos de insumos todavía.</div>
+              </div>
             </div>
           </div>
 
@@ -722,21 +808,48 @@ const handleIngresoSubmit = () => {
         </div>
 
         <div class="row g-3 mb-3">
-          <!-- Diagnóstico de ingreso -->
+          <div class="col-12 col-md-6">
+            <label for="ingreso-motivo" class="form-label">
+              Motivo / protocolo
+            </label>
+            <select id="ingreso-motivo" v-model="formIngreso.motivo" class="form-select">
+              <option value="">Sin protocolo específico</option>
+              <option v-for="p in protocolos" :key="p.reason" :value="p.reason">
+                {{ p.reason }} ({{ p.tasks.length }} tareas)
+              </option>
+              <option
+                v-if="!protocolos.some((p) => p.reason === 'cirugia')"
+                value="cirugia"
+              >
+                cirugia
+              </option>
+              <option
+                v-if="!protocolos.some((p) => p.reason === 'respiratorio')"
+                value="respiratorio"
+              >
+                respiratorio
+              </option>
+              <option
+                v-if="!protocolos.some((p) => p.reason === 'pediatria')"
+                value="pediatria"
+              >
+                pediatria
+              </option>
+            </select>
+            <div class="form-text">Define las tareas automáticas al ingresar.</div>
+          </div>
           <div class="col-12 col-md-6">
             <label for="ingreso-diagnostico" class="form-label">
-              Diagnóstico / Motivo de internación
+              Diagnóstico de ingreso
             </label>
             <input
               id="ingreso-diagnostico"
               v-model="formIngreso.diagnostico"
               type="text"
               class="form-control"
-              placeholder="Ej: Neumonía adquirida en la comunidad, postquirúrgico..."
+              placeholder="Ej: Neumonía adquirida en la comunidad..."
             />
           </div>
-
-          <!-- Médico tratante -->
           <div class="col-12 col-md-6">
             <label for="ingreso-medico" class="form-label">
               Médico tratante
@@ -752,12 +865,9 @@ const handleIngresoSubmit = () => {
                 :key="medico.id"
                 :value="String(medico.id)"
               >
-                Dr/a. {{ medico.nombre }} ({{ medico.especialidad }})
+                Dr/a. {{ medico.apellido }}, {{ medico.nombre }}
               </option>
             </select>
-            <div v-if="medicosTratantes.length === 0" class="form-text text-muted">
-              El cuerpo médico estará disponible al conectar la API.
-            </div>
           </div>
         </div>
 

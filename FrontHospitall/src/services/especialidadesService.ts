@@ -1,60 +1,82 @@
-import type { Especialidad, EspecialidadFilter, CreateEspecialidadDTO } from '@/types/especialidad'
+import { api } from '@/services/api'
+import type { ApiProfessional, ApiSpecialty } from '@/types/api'
+import type {
+  CreateEspecialidadDTO,
+  Especialidad,
+  EspecialidadFilter,
+} from '@/types/especialidad'
 
-/**
- * Capa de servicios para la gestión de Especialidades Médicas.
- * 
- * Separación de responsabilidades (Criterio 1 y Criterio 7):
- * Centraliza las futuras operaciones de comunicación con el backend (GET, POST, PUT, DELETE).
- * Actualmente preparado a nivel de firmas y contratos TypeScript.
- * En esta etapa retorna colecciones vacías para cumplir estrictamente con la regla
- * de no incorporar datos ficticios en la aplicación.
- */
+function mapSpecialty(
+  s: ApiSpecialty,
+  doctorsCount = 0,
+): Especialidad {
+  return {
+    id: s.id,
+    nombre: s.name,
+    descripcion: s.description || '',
+    icono: s.icon || 'bi-award',
+    cantidadMedicos: doctorsCount,
+    estado: s.active ? 'activa' : 'inactiva',
+  }
+}
+
 export const especialidadesService = {
-  /**
-   * Obtener listado de especialidades médicas con filtros opcionales.
-   * Punto de integración futuro: GET /api/especialidades
-   */
-  async getEspecialidades(_filters?: EspecialidadFilter): Promise<Especialidad[]> {
-    // TODO: Conectar con backend cuando los endpoints estén disponibles.
-    return []
+  async getEspecialidades(filters?: EspecialidadFilter): Promise<Especialidad[]> {
+    const [specialties, professionals] = await Promise.all([
+      api.get<ApiSpecialty[]>('/specialties'),
+      api.get<ApiProfessional[]>('/professionals'),
+    ])
+    const counts = new Map<string, number>()
+    for (const p of professionals) {
+      for (const sid of p.specialtyIds || []) {
+        counts.set(sid, (counts.get(sid) || 0) + 1)
+      }
+    }
+    return specialties
+      .map((s) => mapSpecialty(s, counts.get(s.id) || 0))
+      .filter((item) => {
+        const q = filters?.query?.trim().toLowerCase() || ''
+        const matchesQuery =
+          !q ||
+          item.nombre.toLowerCase().includes(q) ||
+          item.descripcion.toLowerCase().includes(q)
+        const matchesEstado = !filters?.estado || item.estado === filters.estado
+        return matchesQuery && matchesEstado
+      })
   },
 
-  /**
-   * Obtener una especialidad por su identificador.
-   * Punto de integración futuro: GET /api/especialidades/:id
-   */
-  async getEspecialidadById(_id: number | string): Promise<Especialidad | null> {
-    // TODO: Conectar con backend cuando los endpoints estén disponibles.
-    return null
+  async getEspecialidadById(id: number | string): Promise<Especialidad | null> {
+    return mapSpecialty(await api.get<ApiSpecialty>(`/specialties/${id}`))
   },
 
-  /**
-   * Registrar una nueva especialidad médica en el sistema.
-   * Punto de integración futuro: POST /api/especialidades
-   */
-  async createEspecialidad(_data: CreateEspecialidadDTO): Promise<Especialidad | null> {
-    // TODO: Conectar con backend cuando los endpoints estén disponibles.
-    return null
+  async createEspecialidad(data: CreateEspecialidadDTO): Promise<Especialidad | null> {
+    return mapSpecialty(
+      await api.post<ApiSpecialty>('/specialties', {
+        name: data.nombre,
+        description: data.descripcion,
+        icon: data.icono,
+        active: data.estado !== 'inactiva',
+      }),
+    )
   },
 
-  /**
-   * Actualizar los datos de una especialidad médica existente.
-   * Punto de integración futuro: PUT /api/especialidades/:id
-   */
   async updateEspecialidad(
-    _id: number | string,
-    _data: Partial<CreateEspecialidadDTO>
+    id: number | string,
+    data: Partial<CreateEspecialidadDTO>,
   ): Promise<Especialidad | null> {
-    // TODO: Conectar con backend cuando los endpoints estén disponibles.
-    return null
+    return mapSpecialty(
+      await api.patch<ApiSpecialty>(`/specialties/${id}`, {
+        name: data.nombre,
+        description: data.descripcion,
+        icon: data.icono,
+        active:
+          data.estado === undefined ? undefined : data.estado !== 'inactiva',
+      }),
+    )
   },
 
-  /**
-   * Eliminar una especialidad médica.
-   * Punto de integración futuro: DELETE /api/especialidades/:id
-   */
-  async deleteEspecialidad(_id: number | string): Promise<boolean> {
-    // TODO: Conectar con backend cuando los endpoints estén disponibles.
-    return false
+  async deleteEspecialidad(id: number | string): Promise<boolean> {
+    await api.delete(`/specialties/${id}`)
+    return true
   },
 }

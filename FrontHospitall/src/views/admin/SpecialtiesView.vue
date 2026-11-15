@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import StatCard from '@/components/common/StatCard.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import BaseModal from '@/components/common/BaseModal.vue'
 import type { Especialidad, CreateEspecialidadDTO } from '@/types/especialidad'
+import { ApiError } from '@/services/api'
+import { especialidadesService } from '@/services/especialidadesService'
 
 /**
  * Vista: Gestión de Especialidades (SpecialtiesView.vue)
@@ -16,33 +18,43 @@ import type { Especialidad, CreateEspecialidadDTO } from '@/types/especialidad'
  * - Sin simular persistencia ni llamadas a backend en esta etapa.
  */
 
-// Colección reactiva de especialidades (inicia vacía sin datos ficticios)
 const especialidades = ref<Especialidad[]>([])
 
-// Indicadores estadísticos sin datos ficticios
-const statCards = [
+const loadData = async () => {
+  especialidades.value = await especialidadesService.getEspecialidades()
+}
+
+onMounted(() => {
+  loadData().catch((err) => {
+    alert(err instanceof ApiError ? err.message : 'No se pudieron cargar las especialidades')
+  })
+})
+
+const statCards = computed(() => [
   {
     label: 'Total Especialidades',
     icon: 'bi-award',
     colorClass: 'blue' as const,
     hint: 'Registradas en el hospital',
-    value: '—',
+    value: String(especialidades.value.length || '—'),
   },
   {
     label: 'Especialidades Activas',
     icon: 'bi-check-circle',
     colorClass: 'green' as const,
     hint: 'Habilitadas para asignación',
-    value: '—',
+    value: String(especialidades.value.filter((e) => e.estado === 'activa').length || '—'),
   },
   {
     label: 'Médicos Asignados',
     icon: 'bi-people',
     colorClass: 'amber' as const,
     hint: 'Distribuídos en las áreas',
-    value: '—',
+    value: String(
+      especialidades.value.reduce((sum, e) => sum + (e.cantidadMedicos || 0), 0) || '—',
+    ),
   },
-]
+])
 
 // Filtros y búsqueda
 const searchQuery = ref('')
@@ -113,9 +125,13 @@ const openEditModal = (specialty: Especialidad) => {
 }
 
 // Acción visual para Eliminar
-const handleDelete = (specialty: Especialidad) => {
-  if (confirm(`¿Desea eliminar la especialidad "${specialty.nombre}"?`)) {
-    alert('Acción visual. La eliminación se efectuará con la API en el backend.')
+const handleDelete = async (specialty: Especialidad) => {
+  if (!confirm(`¿Desea eliminar la especialidad "${specialty.nombre}"?`)) return
+  try {
+    await especialidadesService.deleteEspecialidad(specialty.id)
+    await loadData()
+  } catch (err) {
+    alert(err instanceof ApiError ? err.message : 'No se pudo eliminar')
   }
 }
 
@@ -123,9 +139,22 @@ const closeModal = () => {
   isModalOpen.value = false
 }
 
-const handleSave = () => {
-  alert('Acción visual de guardado. El backend procesará la operación en la etapa de integración.')
-  closeModal()
+const handleSave = async () => {
+  if (modalMode.value === 'consultar') {
+    closeModal()
+    return
+  }
+  try {
+    if (modalMode.value === 'crear') {
+      await especialidadesService.createEspecialidad(form.value)
+    } else if (selectedSpecialty.value) {
+      await especialidadesService.updateEspecialidad(selectedSpecialty.value.id, form.value)
+    }
+    await loadData()
+    closeModal()
+  } catch (err) {
+    alert(err instanceof ApiError ? err.message : 'No se pudo guardar')
+  }
 }
 
 // Filtrado reactivo de la lista de especialidades

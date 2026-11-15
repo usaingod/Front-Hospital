@@ -1,11 +1,15 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import type { Paciente } from '@/types/paciente'
 import type { SignosVitales } from '@/types/signosVitales'
 import type { Prescripcion } from '@/types/prescripcion'
 import type { Internacion } from '@/types/internacion'
+import { ApiError } from '@/services/api'
+import { internacionService } from '@/services/camasService'
+import { prescripcionService } from '@/services/prescripcionService'
+import { signosVitalesService } from '@/services/signosVitalesService'
 
 /**
  * Vista de Paciente — Perfil Enfermería
@@ -27,10 +31,26 @@ const selectedInternacion = ref<Internacion | null>(null)
 // Pestaña activa: 'medicacion' | 'historia' | 'evolucion' | 'signos'
 const activeTab = ref<'medicacion' | 'historia' | 'evolucion' | 'signos'>('medicacion')
 
-// Colecciones reactivas vacías (sin datos ficticios)
 const pacientesInternados = ref<Paciente[]>([])
 const historialSignosVitales = ref<SignosVitales[]>([])
 const prescripciones = ref<Prescripcion[]>([])
+const staysByPatient = ref<Map<string, Internacion>>(new Map())
+
+onMounted(() => {
+  internacionService
+    .pacientesInternados()
+    .then(({ stays, patients }) => {
+      pacientesInternados.value = patients
+      staysByPatient.value = new Map(stays.map((s) => [s.pacienteId, s]))
+    })
+    .catch((err) => {
+      alert(
+        err instanceof ApiError
+          ? err.message
+          : 'No se pudieron cargar los pacientes internados',
+      )
+    })
+})
 
 // Filtrado de pacientes por búsqueda
 const pacientesFiltrados = computed(() => {
@@ -44,12 +64,22 @@ const pacientesFiltrados = computed(() => {
 })
 
 // Seleccionar paciente
-const selectPatient = (paciente: Paciente) => {
+const selectPatient = async (paciente: Paciente) => {
   selectedPatient.value = paciente
+  selectedInternacion.value = staysByPatient.value.get(String(paciente.id)) || null
   activeTab.value = 'medicacion'
-  // En la integración real: cargar historial de signos vitales y prescripciones del backend
-  historialSignosVitales.value = []
-  prescripciones.value = []
+  try {
+    const [signos, meds] = await Promise.all([
+      signosVitalesService.getByPacienteId(String(paciente.id)),
+      prescripcionService.getByPacienteId(String(paciente.id)),
+    ])
+    historialSignosVitales.value = signos
+    prescripciones.value = meds
+  } catch (err) {
+    historialSignosVitales.value = []
+    prescripciones.value = []
+    alert(err instanceof ApiError ? err.message : 'No se pudo cargar la ficha')
+  }
 }
 
 const clearPatient = () => {
@@ -57,6 +87,55 @@ const clearPatient = () => {
   selectedInternacion.value = null
   historialSignosVitales.value = []
   prescripciones.value = []
+}
+
+const doseBusyId = ref<string | null>(null)
+const discharging = ref(false)
+
+const darDeAlta = async () => {
+  if (!selectedInternacion.value || !selectedPatient.value) return
+  const nombre = `${selectedPatient.value.apellido}, ${selectedPatient.value.nombre}`
+  if (
+    !confirm(
+      `¿Confirmás el alta de ${nombre}? La cama pasará a limpieza.`,
+    )
+  ) {
+    return
+  }
+  discharging.value = true
+  try {
+    await internacionService.discharge(selectedInternacion.value.id)
+    clearPatient()
+    const { stays, patients } = await internacionService.pacientesInternados()
+    pacientesInternados.value = patients
+    staysByPatient.value = new Map(stays.map((s) => [s.pacienteId, s]))
+  } catch (err) {
+    alert(err instanceof ApiError ? err.message : 'No se pudo dar el alta')
+  } finally {
+    discharging.value = false
+  }
+}
+
+const administrarDosis = async (prescripcion: Prescripcion) => {
+  if (!selectedInternacion.value) {
+    alert('El paciente no tiene una internación activa')
+    return
+  }
+  doseBusyId.value = String(prescripcion.id)
+  try {
+    const now = new Date().toISOString()
+    await prescripcionService.administrarDosis({
+      admissionId: selectedInternacion.value.id,
+      indicacionId: String(prescripcion.id),
+      horaIndicada: now,
+      administradaEn: now,
+    })
+    alert('Dosis registrada')
+  } catch (err) {
+    alert(err instanceof ApiError ? err.message : 'No se pudo registrar la dosis')
+  } finally {
+    doseBusyId.value = null
+  }
 }
 
 // Estado de prescripción: etiqueta visual
@@ -225,14 +304,27 @@ const getEstadoPrescripcionClass = (estado?: string): string => {
               </div>
             </div>
 
-            <button
-              type="button"
-              class="btn btn-sm btn-outline-secondary"
-              title="Cerrar panel"
-              @click="clearPatient"
-            >
-              <i class="bi bi-x-lg"></i>
-            </button>
+            <div class="d-flex align-items-center gap-2">
+              <button
+                v-if="selectedInternacion"
+                type="button"
+                class="btn btn-sm btn-danger"
+                title="Dar de alta al paciente"
+                :disabled="discharging"
+                @click="darDeAlta"
+              >
+                <i class="bi bi-box-arrow-right me-1"></i>
+                {{ discharging ? 'Procesando…' : 'Dar de alta' }}
+              </button>
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-secondary"
+                title="Cerrar panel"
+                @click="clearPatient"
+              >
+                <i class="bi bi-x-lg"></i>
+              </button>
+            </div>
           </div>
 
           <!-- Datos de internación (solo lectura) -->
@@ -323,8 +415,7 @@ const getEstadoPrescripcionClass = (estado?: string): string => {
               <div class="alert alert-light border d-flex align-items-center gap-2 mb-3 py-2 px-3">
                 <i class="bi bi-info-circle" style="color: var(--hospital-red-primary); font-size: 1.1rem;"></i>
                 <span class="small text-muted">
-                  Prescripciones médicas asignadas al paciente. Enfermería puede consultar las prescripciones.
-                  El registro de administración de dosis estará disponible según los permisos habilitados por el backend.
+                  Prescripciones médicas asignadas al paciente. Podés registrar la administración de cada dosis.
                 </span>
               </div>
 
@@ -336,6 +427,7 @@ const getEstadoPrescripcionClass = (estado?: string): string => {
                       <th scope="col">Dosis</th>
                       <th scope="col">Frecuencia</th>
                       <th scope="col">Estado</th>
+                      <th scope="col" class="text-center">Acción</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -351,14 +443,24 @@ const getEstadoPrescripcionClass = (estado?: string): string => {
                             {{ getEstadoPrescripcionLabel(prescripcion.estado) }}
                           </span>
                         </td>
+                        <td class="text-center">
+                          <button
+                            type="button"
+                            class="btn btn-sm btn-outline-danger"
+                            :disabled="doseBusyId === String(prescripcion.id)"
+                            @click="administrarDosis(prescripcion)"
+                          >
+                            {{ doseBusyId === String(prescripcion.id) ? 'Guardando…' : 'Administrar' }}
+                          </button>
+                        </td>
                       </tr>
                     </template>
                     <tr v-else>
-                      <td colspan="4" class="p-0">
+                      <td colspan="5" class="p-0">
                         <EmptyState
                           icon="bi-capsule"
                           title="Sin prescripciones registradas"
-                          description="Las prescripciones médicas de este paciente se mostrarán aquí al conectar con el servidor."
+                          description="Las prescripciones médicas de este paciente se mostrarán aquí cuando el médico las indique."
                           compact
                         />
                       </td>
@@ -441,9 +543,13 @@ const getEstadoPrescripcionClass = (estado?: string): string => {
                       <tr
                         v-for="registro in historialSignosVitales"
                         :key="registro.id"
+                        :class="{ 'table-danger': registro.fueraDeRango }"
                       >
                         <td class="text-muted small">{{ registro.fechaHora }}</td>
-                        <td>{{ registro.temperatura }}°C</td>
+                        <td :class="{ 'fw-bold text-danger': registro.fueraDeRango }">
+                          {{ registro.temperatura }}°C
+                          <span v-if="registro.fueraDeRango" class="badge bg-danger ms-1">Fiebre</span>
+                        </td>
                         <td>{{ registro.frecuenciaCardiaca }}</td>
                         <td>{{ registro.presionSistolica }}</td>
                         <td>{{ registro.presionDiastolica }}</td>

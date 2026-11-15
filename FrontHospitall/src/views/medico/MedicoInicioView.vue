@@ -1,10 +1,13 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import PageHeader from '@/components/common/PageHeader.vue'
 import StatCard from '@/components/common/StatCard.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import type { Turno } from '@/types/turno'
+import { ApiError } from '@/services/api'
+import { useAuthStore } from '@/stores/auth'
+import { turnosService } from '@/services/turnosService'
 
 /**
  * Vista de Inicio (Perfil Médico)
@@ -29,41 +32,58 @@ const todayFormatted = computed(() => {
   return formatted.charAt(0).toUpperCase() + formatted.slice(1)
 })
 
-// Colecciones reactivas vacías preparadas para el backend (Regla estricta: sin datos ficticios)
+const auth = useAuthStore()
 const turnosHoy = ref<Turno[]>([])
 const proximosTurnos = ref<Turno[]>([])
+const todayIso = new Date().toISOString().substring(0, 10)
 
-// Indicadores estadísticos sin datos inventados (muestran guion según especificación)
-const statCards = [
+onMounted(() => {
+  turnosService
+    .getTurnos()
+    .then((rows) => {
+      const mine = auth.user?.professionalId
+        ? rows.filter((t) => String(t.medicoId) === String(auth.user?.professionalId))
+        : rows
+      turnosHoy.value = mine.filter((t) => t.fecha === todayIso)
+      proximosTurnos.value = mine
+        .filter((t) => t.fecha > todayIso && t.estado !== 'cancelado')
+        .slice(0, 10)
+    })
+    .catch((err) => {
+      alert(err instanceof ApiError ? err.message : 'No se pudieron cargar los turnos')
+    })
+})
+
+const statCards = computed(() => [
   {
     label: 'Turnos de hoy',
     icon: 'bi-calendar-event',
     colorClass: 'amber' as const,
     hint: 'Citas programadas para la jornada',
-    value: '—',
+    value: String(turnosHoy.value.length || '—'),
   },
   {
     label: 'Turnos confirmados',
     icon: 'bi-check2-circle',
     colorClass: 'green' as const,
     hint: 'Pacientes con asistencia confirmada',
-    value: '—',
+    value: String(turnosHoy.value.filter((t) => t.estado === 'confirmado').length || '—'),
   },
   {
     label: 'Turnos pendientes',
     icon: 'bi-hourglass-split',
     colorClass: 'blue' as const,
     hint: 'Por confirmar o en sala de espera',
-    value: '—',
+    value: String(turnosHoy.value.filter((t) => t.estado === 'pendiente').length || '—'),
   },
   {
     label: 'Turnos cancelados',
     icon: 'bi-x-circle',
     colorClass: 'rose' as const,
     hint: 'Cancelados por paciente o servicio',
-    value: '—',
+    value: String(turnosHoy.value.filter((t) => t.estado === 'cancelado').length || '—'),
   },
-]
+])
 
 // Accesos rápidos a secciones operativas del médico
 const quickActions = [

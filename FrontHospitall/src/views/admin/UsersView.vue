@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import StatCard from '@/components/common/StatCard.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import BaseModal from '@/components/common/BaseModal.vue'
 import type { Usuario, CreateUsuarioDTO, RolUsuario } from '@/types/usuario'
+import { ApiError } from '@/services/api'
+import { usuariosService } from '@/services/usuariosService'
 
 /**
  * Vista: Gestión de Usuarios del Sistema (UsersView.vue)
@@ -18,40 +20,48 @@ import type { Usuario, CreateUsuarioDTO, RolUsuario } from '@/types/usuario'
  * - Sin autenticación real ni almacenamiento de contraseñas.
  */
 
-// Colección reactiva de usuarios (inicia vacía sin datos inventados)
 const usuarios = ref<Usuario[]>([])
 
-// Indicadores estadísticos sin datos ficticios
-const statCards = [
+const loadData = async () => {
+  usuarios.value = await usuariosService.getUsuarios()
+}
+
+onMounted(() => {
+  loadData().catch((err) => {
+    alert(err instanceof ApiError ? err.message : 'No se pudieron cargar los usuarios')
+  })
+})
+
+const statCards = computed(() => [
   {
     label: 'Total Usuarios',
     icon: 'bi-people',
     colorClass: 'blue' as const,
     hint: 'Cuentas en el sistema',
-    value: '—',
+    value: String(usuarios.value.length || '—'),
   },
   {
     label: 'Administradores',
     icon: 'bi-shield-check',
     colorClass: 'blue' as const,
     hint: 'Acceso a configuración global',
-    value: '—',
+    value: String(usuarios.value.filter((u) => u.rol === 'Administrador').length || '—'),
   },
   {
     label: 'Secretaría',
     icon: 'bi-calendar3',
     colorClass: 'green' as const,
     hint: 'Gestión de turnos y pacientes',
-    value: '—',
+    value: String(usuarios.value.filter((u) => u.rol === 'Secretaria').length || '—'),
   },
   {
     label: 'Usuarios Activos',
     icon: 'bi-check-circle',
     colorClass: 'amber' as const,
     hint: 'Habilitados para ingresar',
-    value: '—',
+    value: String(usuarios.value.filter((u) => u.estado === 'activo').length || '—'),
   },
-]
+])
 
 // Filtros y búsqueda
 const searchQuery = ref('')
@@ -131,9 +141,13 @@ const openEditModal = (user: Usuario) => {
 }
 
 // Acción visual para Eliminar
-const handleDelete = (user: Usuario) => {
-  if (confirm(`¿Desea deshabilitar la cuenta del usuario "${user.nombre} ${user.apellido}"?`)) {
-    alert('Acción visual. La eliminación se efectuará con la API en el backend.')
+const handleDelete = async (user: Usuario) => {
+  if (!confirm(`¿Desea deshabilitar la cuenta del usuario "${user.nombre} ${user.apellido}"?`)) return
+  try {
+    await usuariosService.deleteUsuario(user.id)
+    await loadData()
+  } catch (err) {
+    alert(err instanceof ApiError ? err.message : 'No se pudo deshabilitar')
   }
 }
 
@@ -141,14 +155,26 @@ const closeModal = () => {
   isModalOpen.value = false
 }
 
-const handleSave = () => {
+const handleSave = async () => {
+  if (modalMode.value === 'consultar') {
+    closeModal()
+    return
+  }
   if (modalMode.value === 'crear' && form.value.password !== form.value.confirmPassword) {
     alert('Las contraseñas ingresadas no coinciden. Verifique los campos.')
     return
   }
-
-  alert('Acción visual de guardado. El backend procesará la operación en la etapa de integración.')
-  closeModal()
+  try {
+    if (modalMode.value === 'crear') {
+      await usuariosService.createUsuario(form.value)
+    } else if (selectedUser.value) {
+      await usuariosService.updateUsuario(selectedUser.value.id, form.value)
+    }
+    await loadData()
+    closeModal()
+  } catch (err) {
+    alert(err instanceof ApiError ? err.message : 'No se pudo guardar')
+  }
 }
 
 // Filtrado reactivo de usuarios
@@ -234,6 +260,8 @@ const filteredUsers = computed(() => {
             <option value="">Todos los roles</option>
             <option value="Administrador">Administrador</option>
             <option value="Secretaria">Secretaría</option>
+            <option value="Profesional">Profesional</option>
+            <option value="Enfermero">Enfermero</option>
           </select>
         </div>
 
@@ -480,6 +508,8 @@ const filteredUsers = computed(() => {
             >
               <option value="Administrador">Administrador (Gestión general)</option>
               <option value="Secretaria">Secretaría (Turnos y pacientes)</option>
+              <option value="Profesional">Profesional (Agenda médica)</option>
+              <option value="Enfermero">Enfermero (Internación)</option>
             </select>
           </div>
 

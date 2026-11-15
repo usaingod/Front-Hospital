@@ -1,65 +1,99 @@
-import type { Paciente, PacienteFilter, CreatePacienteDTO } from '@/types/paciente'
+import { api } from '@/services/api'
+import type { ApiPatient } from '@/types/api'
+import type { CreatePacienteDTO, Paciente, PacienteFilter } from '@/types/paciente'
 
-/**
- * Capa de servicios para la gestión del Padrón de Pacientes.
- * 
- * Separación de responsabilidades (Criterio 1 y Criterio 7):
- * Este módulo centraliza las futuras operaciones de comunicación con el backend.
- * Actualmente se encuentra preparado a nivel de firmas y tipado TypeScript,
- * a la espera de la definición final de los endpoints y del cliente HTTP (fetch/axios).
- */
+const coverageLabel: Record<ApiPatient['coverage'], string> = {
+  publica: 'Pública',
+  prepaga: 'Prepaga',
+  particular: 'Particular',
+}
+
+const coverageFromLabel = (value?: string): ApiPatient['coverage'] | undefined => {
+  const normalized = (value || '').trim().toLowerCase()
+  if (!normalized) return undefined
+  if (normalized.includes('prepaga')) return 'prepaga'
+  if (normalized.includes('public')) return 'publica'
+  if (normalized.includes('particular')) return 'particular'
+  if (normalized === 'publica' || normalized === 'prepaga' || normalized === 'particular') {
+    return normalized
+  }
+  return undefined
+}
+
+export function mapPatient(p: ApiPatient): Paciente {
+  return {
+    id: p.id,
+    nombre: p.firstName,
+    apellido: p.lastName,
+    dni: p.documentId,
+    fechaNacimiento: p.birthDate ? String(p.birthDate).slice(0, 10) : '',
+    telefono: p.phone || '',
+    email: p.email || '',
+    direccion: p.address || '',
+    obraSocial: coverageLabel[p.coverage] || p.insurer || '',
+    numeroAfiliado: p.affiliateNumber || '',
+    observaciones: p.notes || '',
+    estado: p.active ? 'activo' : 'inactivo',
+    contactoEmergencia: p.emergencyContact || '',
+    appointmentBalance: p.appointmentBalance,
+    supplyBalance: p.supplyBalance,
+  }
+}
+
+function toApiPayload(data: Partial<CreatePacienteDTO>) {
+  const coverage = coverageFromLabel(data.obraSocial)
+  return {
+    firstName: data.nombre,
+    lastName: data.apellido,
+    documentId: data.dni,
+    email: data.email || undefined,
+    phone: data.telefono || undefined,
+    birthDate: data.fechaNacimiento || undefined,
+    address: data.direccion || undefined,
+    insurer: data.obraSocial || undefined,
+    affiliateNumber: data.numeroAfiliado || undefined,
+    emergencyContact: undefined,
+    notes: data.observaciones || undefined,
+    coverage,
+    copay: coverage === 'prepaga' ? 3000 : 0,
+  }
+}
+
 export const pacientesService = {
-  /**
-   * Obtener listado de pacientes con filtros de búsqueda opcionales.
-   * Punto de integración futuro: GET /api/pacientes
-   */
-  async getPacientes(_filters?: PacienteFilter): Promise<Paciente[]> {
-    // TODO: Conectar con backend cuando los endpoints estén disponibles.
-    // Retorna array vacío en esta etapa para cumplir con la regla de no simular datos ficticios.
-    return []
+  async getPacientes(filters?: PacienteFilter): Promise<Paciente[]> {
+    const rows = (await api.get<ApiPatient[]>('/patients')).map(mapPatient)
+    return rows.filter((p) => {
+      const q = filters?.query?.trim().toLowerCase() || ''
+      const matchesQuery =
+        !q ||
+        `${p.nombre} ${p.apellido}`.toLowerCase().includes(q) ||
+        p.dni.includes(q) ||
+        p.telefono.toLowerCase().includes(q)
+      const matchesObra =
+        !filters?.obraSocial || p.obraSocial === filters.obraSocial
+      const matchesEstado = !filters?.estado || p.estado === filters.estado
+      return matchesQuery && matchesObra && matchesEstado
+    })
   },
 
-  /**
-   * Obtener detalle de un paciente por ID.
-   * Punto de integración futuro: GET /api/pacientes/:id
-   */
-  async getPacienteById(_id: number | string): Promise<Paciente | null> {
-    // TODO: Conectar con backend cuando los endpoints estén disponibles.
-    return null
+  async getPacienteById(id: number | string): Promise<Paciente | null> {
+    return mapPatient(await api.get<ApiPatient>(`/patients/${id}`))
   },
 
-  /**
-   * Registrar un nuevo paciente en el padrón hospitalario.
-   * Punto de integración futuro: POST /api/pacientes
-   */
-  async createPaciente(_data: CreatePacienteDTO): Promise<Paciente | null> {
-    // TODO: Conectar con backend cuando los endpoints estén disponibles.
-    return null
+  async createPaciente(data: CreatePacienteDTO): Promise<Paciente | null> {
+    return mapPatient(await api.post<ApiPatient>('/patients', toApiPayload(data)))
   },
 
-  /**
-   * Actualizar los datos de un paciente.
-   * Punto de integración futuro: PUT /api/pacientes/:id
-   */
-  async updatePaciente(_id: number | string, _data: Partial<CreatePacienteDTO>): Promise<Paciente | null> {
-    // TODO: Conectar con backend cuando los endpoints estén disponibles.
-    return null
+  async updatePaciente(
+    id: number | string,
+    data: Partial<CreatePacienteDTO>,
+  ): Promise<Paciente | null> {
+    return mapPatient(
+      await api.patch<ApiPatient>(`/patients/${id}`, toApiPayload(data)),
+    )
   },
 
-  /**
-   * Cancelar la totalidad del saldo adeudado por un paciente.
-   * La operación en el backend establece:
-   *   appointmentBalance = 0
-   *   supplyBalance = 0
-   * Punto de integración futuro: PATCH /api/pacientes/:id/pagar o POST /api/pacientes/:id/cancelar-saldo
-   */
-  async cancelarSaldoTotal(_id: number | string): Promise<Paciente | null> {
-    // TODO: Conectar con el backend cuando los endpoints estén disponibles.
-    // La mutación se ejecuta exclusivamente en el servidor sobre el modelo Patient:
-    // await prisma.patient.update({
-    //   where: { id: _id },
-    //   data: { appointmentBalance: 0, supplyBalance: 0 }
-    // })
-    return null
+  async cancelarSaldoTotal(id: number | string): Promise<Paciente | null> {
+    return mapPatient(await api.post<ApiPatient>(`/patients/${id}/pay`))
   },
 }

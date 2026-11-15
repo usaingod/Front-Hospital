@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
 import { useUiStore, type UserRole } from '@/stores/ui'
 
 /**
@@ -22,6 +23,7 @@ const props = withDefaults(
 const route = useRoute()
 const router = useRouter()
 const uiStore = useUiStore()
+const authStore = useAuthStore()
 
 // Determinar el rol activo: prop explícita o sincronizado con uiStore/ruta
 const activeRole = computed<UserRole>(() => {
@@ -37,6 +39,7 @@ const isEnfermeria = computed(() => activeRole.value === 'enfermeria')
 const secretariaNavItems = [
   { name: 'Inicio', path: '/secretaria/inicio', icon: 'bi-grid-1x2' },
   { name: 'Turnos', path: '/secretaria/turnos', icon: 'bi-calendar3' },
+  { name: 'Triaje', path: '/secretaria/triaje', icon: 'bi-thermometer-half' },
   { name: 'Pacientes', path: '/secretaria/pacientes', icon: 'bi-people' },
   { name: 'Médicos', path: '/secretaria/medicos', icon: 'bi-person-badge' },
   { name: 'Internación', path: '/secretaria/internacion', icon: 'bi-hospital' },
@@ -99,8 +102,17 @@ const closeProfileDropdown = () => {
   isProfileDropdownOpen.value = false
 }
 
-// Acción de cambio de perfil: actualiza Pinia y navega al inicio correspondiente
+const canVisitRole = (role: UserRole) => {
+  const authRole = authStore.uiRole
+  if (!authRole) return false
+  return authRole === 'admin' || authRole === role
+}
+
 const selectProfile = (newRole: UserRole) => {
+  if (!canVisitRole(newRole)) {
+    closeProfileDropdown()
+    return
+  }
   if (newRole === activeRole.value) {
     closeProfileDropdown()
     return
@@ -111,13 +123,13 @@ const selectProfile = (newRole: UserRole) => {
   uiStore.closeSidebar()
 
   if (newRole === 'admin') {
-    router.push('/admin/inicio')
+    void router.push('/admin/inicio')
   } else if (newRole === 'medico') {
-    router.push('/medico/inicio')
+    void router.push('/medico/inicio')
   } else if (newRole === 'enfermeria') {
-    router.push('/enfermeria/inicio')
+    void router.push('/enfermeria/inicio')
   } else {
-    router.push('/secretaria/inicio')
+    void router.push('/secretaria/inicio')
   }
 }
 
@@ -139,9 +151,10 @@ onBeforeUnmount(() => {
   document.removeEventListener('click', handleClickOutside)
 })
 
-const handleLogout = () => {
-  // Acción visual de cierre de sesión sin backend real
-  alert('Acción visual de cierre de sesión. El backend gestionará la autenticación en etapas posteriores.')
+const handleLogout = async () => {
+  authStore.logout()
+  uiStore.closeSidebar()
+  await router.push('/login')
 }
 </script>
 
@@ -251,6 +264,7 @@ const handleLogout = () => {
             type="button"
             class="profile-dropdown-item"
             :class="{ active: activeRole === 'secretaria' }"
+            :disabled="!canVisitRole('secretaria')"
             role="menuitem"
             @click="selectProfile('secretaria')"
           >
@@ -269,6 +283,7 @@ const handleLogout = () => {
             type="button"
             class="profile-dropdown-item"
             :class="{ active: activeRole === 'admin' }"
+            :disabled="!canVisitRole('admin')"
             role="menuitem"
             @click="selectProfile('admin')"
           >
@@ -287,6 +302,7 @@ const handleLogout = () => {
             type="button"
             class="profile-dropdown-item"
             :class="{ active: activeRole === 'medico' }"
+            :disabled="!canVisitRole('medico')"
             role="menuitem"
             @click="selectProfile('medico')"
           >
@@ -305,6 +321,7 @@ const handleLogout = () => {
             type="button"
             class="profile-dropdown-item"
             :class="{ active: activeRole === 'enfermeria' }"
+            :disabled="!canVisitRole('enfermeria')"
             role="menuitem"
             @click="selectProfile('enfermeria')"
           >

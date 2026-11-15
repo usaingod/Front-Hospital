@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import BaseModal from '@/components/common/BaseModal.vue'
 import type { Medico, HorarioAtencion } from '@/types/medico'
+import { ApiError } from '@/services/api'
+import { medicosService } from '@/services/medicosService'
 
 /**
  * Vista de Médicos (Secretaría)
@@ -14,19 +16,43 @@ import type { Medico, HorarioAtencion } from '@/types/medico'
  * - Sin médicos ni horarios de ejemplo precargados
  */
 
-// Colección reactiva de médicos (inicia vacía según la regla de no incorporar datos ficticios)
 const medicos = ref<Medico[]>([])
-
-// Horarios del médico seleccionado (inicia vacía)
 const horarios = ref<HorarioAtencion[]>([])
-
-// Filtros y búsqueda
 const searchQuery = ref('')
 const filterEspecialidad = ref('')
 const filterEstado = ref('')
-
-// Médico seleccionado (inicialmente null, sin datos precargados)
 const selectedDoctor = ref<Medico | null>(null)
+const especialidades = ref<string[]>([])
+
+const loadMedicos = async () => {
+  const [docs, esp] = await Promise.all([
+    medicosService.getMedicos(),
+    medicosService.getEspecialidades(),
+  ])
+  medicos.value = docs
+  especialidades.value = esp
+}
+
+onMounted(() => {
+  loadMedicos().catch((err) => {
+    alert(err instanceof ApiError ? err.message : 'No se pudieron cargar los médicos')
+  })
+})
+
+const filteredMedicos = computed(() =>
+  medicos.value.filter((m) => {
+    const q = searchQuery.value.trim().toLowerCase()
+    const matchesQuery =
+      !q ||
+      m.nombre.toLowerCase().includes(q) ||
+      (m.apellido || '').toLowerCase().includes(q) ||
+      m.matricula.toLowerCase().includes(q)
+    const matchesEsp =
+      !filterEspecialidad.value || m.especialidad.includes(filterEspecialidad.value)
+    const matchesEstado = !filterEstado.value || m.estado === filterEstado.value
+    return matchesQuery && matchesEsp && matchesEstado
+  }),
+)
 
 // Modal de horarios
 const isScheduleModalOpen = ref(false)
@@ -61,14 +87,36 @@ const closeScheduleModal = () => {
   isScheduleModalOpen.value = false
 }
 
-const handleScheduleSubmit = () => {
-  // Confirmación clara de estado pendiente de integración sin resultados engañosos
-  alert('Horario validado. La asignación persistente de agenda se conectará con el backend en etapas posteriores.')
-  closeScheduleModal()
+const handleScheduleSubmit = async () => {
+  if (!selectedDoctor.value) return
+  if (!scheduleForm.value.diaSemana || !scheduleForm.value.horaInicio || !scheduleForm.value.horaFin) {
+    alert('Completá día, hora de inicio y fin')
+    return
+  }
+  try {
+    await medicosService.addHorario(selectedDoctor.value.id, {
+      diaSemana: scheduleForm.value.diaSemana,
+      horaInicio: scheduleForm.value.horaInicio,
+      horaFin: scheduleForm.value.horaFin,
+      consultorio: scheduleForm.value.consultorio,
+      modalidad: scheduleForm.value.modalidad,
+      estado: scheduleForm.value.estado,
+    })
+    horarios.value = await medicosService.getHorariosByMedicoId(selectedDoctor.value.id)
+    closeScheduleModal()
+  } catch (err) {
+    alert(err instanceof ApiError ? err.message : 'No se pudo guardar el horario')
+  }
 }
 
-const selectDoctor = (doctor: Medico) => {
+const selectDoctor = async (doctor: Medico) => {
   selectedDoctor.value = doctor
+  try {
+    horarios.value = await medicosService.getHorariosByMedicoId(doctor.id)
+  } catch (err) {
+    horarios.value = []
+    alert(err instanceof ApiError ? err.message : 'No se pudieron cargar los horarios')
+  }
 }
 
 const resetFilters = () => {
@@ -108,6 +156,9 @@ const resetFilters = () => {
           <label class="form-label small mb-1">Especialidad</label>
           <select v-model="filterEspecialidad" class="form-select form-select-sm">
             <option value="">Todas las especialidades</option>
+            <option v-for="esp in especialidades" :key="esp" :value="esp">
+              {{ esp }}
+            </option>
           </select>
         </div>
 
@@ -145,7 +196,7 @@ const resetFilters = () => {
               <span>Cuerpo Médico</span>
             </div>
             <span class="badge bg-light text-secondary border">
-              {{ medicos.length }} profesionales
+              {{ filteredMedicos.length }} profesionales
             </span>
           </div>
 
@@ -163,9 +214,9 @@ const resetFilters = () => {
                 </thead>
                 <tbody>
                   <!-- v-if para listar profesionales cuando el backend esté integrado -->
-                  <template v-if="medicos.length > 0">
+                  <template v-if="filteredMedicos.length > 0">
                     <tr
-                      v-for="medico in medicos"
+                      v-for="medico in filteredMedicos"
                       :key="medico.id"
                       :class="{ 'table-active': selectedDoctor?.id === medico.id }"
                       role="button"

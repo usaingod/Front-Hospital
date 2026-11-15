@@ -1,92 +1,217 @@
+import { api } from '@/services/api'
 import type {
-  Medico,
-  MedicoFilter,
-  HorarioAtencion,
+  ApiAvailability,
+  ApiBranch,
+  ApiProfessional,
+  ApiSpecialty,
+} from '@/types/api'
+import type {
   CreateHorarioDTO,
   CreateMedicoDTO,
+  HorarioAtencion,
+  Medico,
+  MedicoFilter,
 } from '@/types/medico'
 
-/**
- * Capa de servicios para la gestión de Médicos y Horarios de Atención.
- * 
- * Separación de responsabilidades (Criterio 1 y Criterio 7):
- * Este módulo centraliza las futuras operaciones de comunicación con el backend.
- * Actualmente se encuentra preparado a nivel de firmas y tipado TypeScript,
- * a la espera de la definición final de los endpoints y del cliente HTTP (fetch/axios).
- */
+const WEEKDAYS = [
+  'Domingo',
+  'Lunes',
+  'Martes',
+  'Miércoles',
+  'Jueves',
+  'Viernes',
+  'Sábado',
+]
+
+const weekdayFromLabel = (label: string) => {
+  const idx = WEEKDAYS.findIndex(
+    (d) => d.toLowerCase() === label.trim().toLowerCase(),
+  )
+  return idx >= 0 ? idx : 1
+}
+
+const modalityToUi = (
+  m: ApiAvailability['modality'],
+): HorarioAtencion['modalidad'] => {
+  if (m === 'telemedicina') return 'Telemedicina'
+  if (m === 'mixta') return 'Mixta'
+  return 'Presencial'
+}
+
+const modalityFromUi = (
+  m: HorarioAtencion['modalidad'] | CreateHorarioDTO['modalidad'],
+): ApiAvailability['modality'] => {
+  if (m === 'Telemedicina') return 'telemedicina'
+  if (m === 'Mixta') return 'mixta'
+  return 'presencial'
+}
+
+const statusToUi = (
+  s: ApiAvailability['status'],
+): HorarioAtencion['estado'] => {
+  if (s === 'suspendido') return 'Suspendido'
+  if (s === 'licencia') return 'Licencia'
+  return 'Activo'
+}
+
+function mapProfessional(
+  p: ApiProfessional,
+  specialties: Map<string, ApiSpecialty>,
+): Medico {
+  const specialtyName =
+    (p.specialtyIds || [])
+      .map((id) => specialties.get(id)?.name)
+      .filter(Boolean)
+      .join(', ') || 'Sin especialidad'
+  return {
+    id: p.id,
+    nombre: p.firstName,
+    apellido: p.lastName,
+    especialidad: specialtyName,
+    matricula: p.licenseNumber || '—',
+    telefono: p.phone || undefined,
+    email: p.email || undefined,
+    consultorio: p.office || undefined,
+    direccionConsultorio: p.office || undefined,
+    observaciones: p.notes || undefined,
+    estado: p.status,
+  }
+}
+
+function mapAvailability(a: ApiAvailability): HorarioAtencion {
+  return {
+    id: a.id,
+    diaSemana: WEEKDAYS[a.weekday] || String(a.weekday),
+    horaInicio: a.startTime,
+    horaFin: a.endTime,
+    consultorio: a.room || '',
+    modalidad: modalityToUi(a.modality),
+    estado: statusToUi(a.status),
+  }
+}
+
+async function specialtyMap() {
+  const specialties = await api.get<ApiSpecialty[]>('/specialties')
+  return new Map(specialties.map((s) => [s.id, s]))
+}
+
+async function defaultBranchId() {
+  const branches = await api.get<ApiBranch[]>('/branches')
+  const central = branches.find((b) =>
+    b.name.toLowerCase().includes('central'),
+  )
+  const branchId = central?.id || branches[0]?.id
+  if (!branchId) throw new Error('No hay sedes configuradas')
+  return branchId
+}
+
 export const medicosService = {
-  /**
-   * Obtener listado de médicos con filtros opcionales.
-   * Punto de integración futuro: GET /api/medicos
-   */
-  async getMedicos(_filters?: MedicoFilter): Promise<Medico[]> {
-    // TODO: Conectar con backend cuando los endpoints estén disponibles.
-    return []
+  async getMedicos(filters?: MedicoFilter): Promise<Medico[]> {
+    const [professionals, specialties] = await Promise.all([
+      api.get<ApiProfessional[]>('/professionals'),
+      specialtyMap(),
+    ])
+    return professionals
+      .map((p) => mapProfessional(p, specialties))
+      .filter((m) => {
+        const q = filters?.query?.trim().toLowerCase() || ''
+        const matchesQuery =
+          !q ||
+          m.nombre.toLowerCase().includes(q) ||
+          (m.apellido || '').toLowerCase().includes(q) ||
+          m.matricula.toLowerCase().includes(q)
+        const matchesEsp =
+          !filters?.especialidad || m.especialidad === filters.especialidad
+        const matchesEstado = !filters?.estado || m.estado === filters.estado
+        return matchesQuery && matchesEsp && matchesEstado
+      })
   },
 
-  /**
-   * Obtener un médico por su identificador.
-   * Punto de integración futuro: GET /api/medicos/:id
-   */
-  async getMedicoById(_id: number | string): Promise<Medico | null> {
-    // TODO: Conectar con backend cuando los endpoints estén disponibles.
-    return null
+  async getMedicoById(id: number | string): Promise<Medico | null> {
+    const specialties = await specialtyMap()
+    return mapProfessional(
+      await api.get<ApiProfessional>(`/professionals/${id}`),
+      specialties,
+    )
   },
 
-  /**
-   * Registrar un nuevo profesional médico en el sistema (Administrador).
-   * Punto de integración futuro: POST /api/medicos
-   */
-  async createMedico(_data: CreateMedicoDTO): Promise<Medico | null> {
-    // TODO: Conectar con backend cuando los endpoints estén disponibles.
-    return null
+  async createMedico(data: CreateMedicoDTO): Promise<Medico | null> {
+    const specialties = await specialtyMap()
+    const specialty = [...specialties.values()].find(
+      (s) => s.name === data.especialidad,
+    )
+    const branchId = await defaultBranchId()
+    const created = await api.post<ApiProfessional>('/professionals', {
+      firstName: data.nombre,
+      lastName: data.apellido || data.nombre,
+      specialtyIds: specialty ? [specialty.id] : [],
+      branchIds: [branchId],
+      licenseNumber: data.matricula || undefined,
+      phone: data.telefono || undefined,
+      email: data.email || undefined,
+      office: data.direccionConsultorio || undefined,
+      notes: data.observaciones || undefined,
+      status: data.estado,
+    })
+    return mapProfessional(created, specialties)
   },
 
-  /**
-   * Actualizar los datos generales de un médico (Administrador).
-   * Punto de integración futuro: PUT /api/medicos/:id
-   */
   async updateMedico(
-    _id: number | string,
-    _data: Partial<CreateMedicoDTO>
+    id: number | string,
+    data: Partial<CreateMedicoDTO>,
   ): Promise<Medico | null> {
-    // TODO: Conectar con backend cuando los endpoints estén disponibles.
-    return null
+    const specialties = await specialtyMap()
+    const specialty = data.especialidad
+      ? [...specialties.values()].find((s) => s.name === data.especialidad)
+      : undefined
+    const updated = await api.patch<ApiProfessional>(`/professionals/${id}`, {
+      firstName: data.nombre,
+      lastName: data.apellido,
+      specialtyIds: specialty ? [specialty.id] : undefined,
+      licenseNumber: data.matricula,
+      phone: data.telefono,
+      email: data.email,
+      office: data.direccionConsultorio,
+      notes: data.observaciones,
+      status: data.estado,
+    })
+    return mapProfessional(updated, specialties)
   },
 
-  /**
-   * Dar de baja o eliminar un médico del sistema (Administrador).
-   * Punto de integración futuro: DELETE /api/medicos/:id
-   */
-  async deleteMedico(_id: number | string): Promise<boolean> {
-    // TODO: Conectar con backend cuando los endpoints estén disponibles.
-    return false
+  async deleteMedico(id: number | string): Promise<boolean> {
+    await api.patch(`/professionals/${id}`, { status: 'inactivo' })
+    return true
   },
 
-  /**
-   * Obtener especialidades médicas disponibles.
-   * Punto de integración futuro: GET /api/especialidades
-   */
   async getEspecialidades(): Promise<string[]> {
-    // TODO: Conectar con backend cuando los endpoints estén disponibles.
-    return []
+    return (await api.get<ApiSpecialty[]>('/specialties')).map((s) => s.name)
   },
 
-  /**
-   * Obtener horarios de atención configurados para un médico (Secretaría).
-   * Punto de integración futuro: GET /api/medicos/:id/horarios
-   */
-  async getHorariosByMedicoId(_medicoId: number | string): Promise<HorarioAtencion[]> {
-    // TODO: Conectar con backend cuando los endpoints estén disponibles.
-    return []
+  async getHorariosByMedicoId(medicoId: number | string): Promise<HorarioAtencion[]> {
+    const rows = await api.get<ApiAvailability[]>(
+      `/availability?professionalId=${medicoId}`,
+    )
+    return rows
+      .filter((r) => r.professionalId === String(medicoId))
+      .map(mapAvailability)
   },
 
-  /**
-   * Registrar una nueva franja horaria de atención para un médico (Secretaría).
-   * Punto de integración futuro: POST /api/medicos/:id/horarios
-   */
-  async addHorario(_medicoId: number | string, _data: CreateHorarioDTO): Promise<HorarioAtencion | null> {
-    // TODO: Conectar con backend cuando los endpoints estén disponibles.
-    return null
+  async addHorario(
+    medicoId: number | string,
+    data: CreateHorarioDTO,
+  ): Promise<HorarioAtencion | null> {
+    const branchId = await defaultBranchId()
+    const created = await api.post<ApiAvailability>('/availability', {
+      professionalId: String(medicoId),
+      branchId,
+      weekday: weekdayFromLabel(data.diaSemana),
+      startTime: data.horaInicio,
+      endTime: data.horaFin,
+      slotMinutes: 30,
+      room: data.consultorio || undefined,
+      modality: modalityFromUi(data.modalidad),
+      status: data.estado === 'Suspendido' ? 'suspendido' : 'activo',
+    })
+    return mapAvailability(created)
   },
 }

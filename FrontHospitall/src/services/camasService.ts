@@ -1,127 +1,231 @@
-/**
- * Servicio de Camas, Alas e Internación
- * Preparado para la futura integración con la API REST del backend (NestJS).
- * En esta etapa NO realiza peticiones HTTP.
- * Verificar los endpoints reales antes de conectar.
- */
+import { api } from '@/services/api'
+import type { ApiAdmission, ApiBed, ApiPatient, ApiWing } from '@/types/api'
 import type {
-  Cama,
   Ala,
+  Cama,
   CreateAlaDTO,
   CreateCamaDTO,
-  UpdateCamaDTO,
-  Internacion,
   CreateInternacionDTO,
+  Internacion,
+  UpdateCamaDTO,
 } from '@/types/internacion'
+import { mapPatient } from '@/services/pacientesService'
 
-// Futuros endpoints base (a verificar en el backend)
-// const BASE_URL = '/api/camas'
-// const ALAS_URL = '/api/alas'
-// const INTERNACION_URL = '/api/internacion'
+function mapWing(w: ApiWing): Ala {
+  return {
+    id: w.id,
+    nombre: w.name,
+    descripcion: w.description || undefined,
+  }
+}
+
+function mapBed(
+  bed: ApiBed,
+  wings: Map<string, ApiWing>,
+  stayByBed: Map<string, ApiAdmission>,
+  patients: Map<string, ApiPatient>,
+): Cama {
+  const wing = wings.get(bed.wingId)
+  const stay = stayByBed.get(bed.id)
+  const patient = stay ? patients.get(stay.patientId) : undefined
+  return {
+    id: bed.id,
+    numero: bed.number,
+    sala: bed.sala || wing?.name || '',
+    ala: wing?.name,
+    alaId: bed.wingId,
+    habitacion: bed.habitacion || undefined,
+    estado: bed.status,
+    pacienteId: stay?.patientId,
+    pacienteNombre: patient
+      ? `${patient.lastName}, ${patient.firstName}`
+      : undefined,
+    pacienteDni: patient?.documentId,
+    internacionId: stay?.id,
+  }
+}
+
+function mapAdmission(
+  stay: ApiAdmission,
+  beds: Map<string, ApiBed>,
+  patients: Map<string, ApiPatient>,
+  professionals: Map<string, string>,
+): Internacion {
+  const bed = beds.get(stay.bedId)
+  const patient = patients.get(stay.patientId)
+  return {
+    id: stay.id,
+    pacienteId: stay.patientId,
+    pacienteNombre: patient
+      ? `${patient.lastName}, ${patient.firstName}`
+      : undefined,
+    pacienteDni: patient?.documentId,
+    camaId: stay.bedId,
+    sala: bed?.sala || '',
+    habitacion: bed?.habitacion || undefined,
+    numeroCama: bed?.number || '',
+    fechaIngreso: stay.admittedAt,
+    diagnostico: stay.diagnosis || stay.reason || undefined,
+    motivo: stay.reason || undefined,
+    protocolTasks: stay.protocolTasks || [],
+    medicoTratanteId: stay.treatingProfessionalId || undefined,
+    medicoTratanteNombre: stay.treatingProfessionalId
+      ? professionals.get(stay.treatingProfessionalId)
+      : undefined,
+    estado: stay.dischargedAt ? 'alta' : 'activo',
+    observaciones: stay.notes || undefined,
+  }
+}
+
+async function loadMaps() {
+  const [beds, wings, stays, patients, professionals] = await Promise.all([
+    api.get<ApiBed[]>('/beds'),
+    api.get<ApiWing[]>('/wings'),
+    api.get<ApiAdmission[]>('/admissions'),
+    api.get<ApiPatient[]>('/patients'),
+    api.get<{ id: string; firstName: string; lastName: string }[]>(
+      '/professionals',
+    ),
+  ])
+  return {
+    beds,
+    wings: new Map(wings.map((w) => [w.id, w])),
+    stays,
+    stayByBed: new Map(stays.map((s) => [s.bedId, s])),
+    patients: new Map(patients.map((p) => [p.id, p])),
+    professionals: new Map(
+      professionals.map((p) => [p.id, `${p.lastName}, ${p.firstName}`]),
+    ),
+    bedsById: new Map(beds.map((b) => [b.id, b])),
+  }
+}
 
 export const camasService = {
-  /**
-   * Obtener todas las camas del hospital.
-   * Futuro: GET /api/camas
-   */
   async getAll(): Promise<Cama[]> {
-    // TODO: return (await axios.get<Cama[]>(BASE_URL)).data
-    return []
+    const maps = await loadMaps()
+    return maps.beds.map((bed) =>
+      mapBed(bed, maps.wings, maps.stayByBed, maps.patients),
+    )
   },
 
-  /**
-   * Obtener camas filtradas por estado, sala o ala.
-   * Futuro: GET /api/camas?estado=...&sala=...&ala=...
-   */
-  async getFiltered(_estado?: string, _sala?: string, _ala?: string): Promise<Cama[]> {
-    // TODO: implementar cuando se conecte el backend
-    return []
+  async getFiltered(estado?: string, sala?: string, ala?: string): Promise<Cama[]> {
+    const rows = await this.getAll()
+    return rows.filter((c) => {
+      const matchesEstado = !estado || c.estado === estado
+      const matchesSala = !sala || c.sala === sala
+      const matchesAla = !ala || c.ala === ala || c.sala === ala
+      return matchesEstado && matchesSala && matchesAla
+    })
   },
 
-  /**
-   * Crear una nueva cama en el backend.
-   * La lógica de numeración (primer dígito para el ala y dos siguientes secuenciales)
-   * es ejecutada por el backend considerando concurrencia.
-   * Futuro: POST /api/camas
-   */
-  async create(_dto: CreateCamaDTO): Promise<Cama | null> {
-    // TODO: return (await axios.post<Cama>(BASE_URL, _dto)).data
-    return null
+  async create(dto: CreateCamaDTO): Promise<Cama | null> {
+    const wingId =
+      dto.alaId ||
+      (await api.get<ApiWing[]>('/wings')).find((w) => w.name === dto.ala)?.id
+    if (!wingId) throw new Error('Seleccioná un ala válida')
+    const created = await api.post<ApiBed>('/beds', {
+      wingId,
+      sala: dto.sala,
+    })
+    const wings = new Map(
+      (await api.get<ApiWing[]>('/wings')).map((w) => [w.id, w]),
+    )
+    return mapBed(created, wings, new Map(), new Map())
   },
 
-  /**
-   * Modificar datos de una cama existente.
-   * Futuro: PATCH /api/camas/:id
-   */
-  async update(_id: string, _dto: UpdateCamaDTO): Promise<Cama | null> {
-    // TODO: return (await axios.patch<Cama>(`${BASE_URL}/${_id}`, _dto)).data
-    return null
+  async update(id: string, dto: UpdateCamaDTO): Promise<Cama | null> {
+    const updated = await api.patch<ApiBed>(`/beds/${id}`, {
+      wingId: dto.alaId,
+      sala: dto.sala || dto.ala,
+    })
+    if (dto.estado && dto.estado !== 'ocupada') {
+      await api.patch(`/beds/${id}/status`, { status: dto.estado })
+    }
+    const wings = new Map(
+      (await api.get<ApiWing[]>('/wings')).map((w) => [w.id, w]),
+    )
+    return mapBed(updated, wings, new Map(), new Map())
   },
 
-  /**
-   * Eliminar una cama respetando restricciones de integridad referencial del backend.
-   * Futuro: DELETE /api/camas/:id
-   */
-  async delete(_id: string): Promise<boolean> {
-    // TODO: return (await axios.delete(`${BASE_URL}/${_id}`)).status === 200
-    return false
+  async delete(id: string): Promise<boolean> {
+    await api.delete(`/beds/${id}`)
+    return true
   },
 }
 
 export const alasService = {
-  /**
-   * Obtener todas las alas registradas en el hospital.
-   * Futuro: GET /api/alas
-   */
   async getAll(): Promise<Ala[]> {
-    // TODO: return (await axios.get<Ala[]>(ALAS_URL)).data
-    return []
+    return (await api.get<ApiWing[]>('/wings')).map(mapWing)
   },
 
-  /**
-   * Registrar una nueva ala hospitalaria cuando se amplíen las instalaciones.
-   * Futuro: POST /api/alas
-   */
-  async create(_dto: CreateAlaDTO): Promise<Ala | null> {
-    // TODO: return (await axios.post<Ala>(ALAS_URL, _dto)).data
-    return null
+  async create(dto: CreateAlaDTO): Promise<Ala | null> {
+    const wings = await api.get<ApiWing[]>('/wings')
+    const nextCode =
+      wings.reduce((max, wing) => Math.max(max, wing.code), 0) + 1
+    if (nextCode > 9) throw new Error('Solo se admiten códigos de ala del 1 al 9')
+    return mapWing(
+      await api.post<ApiWing>('/wings', {
+        name: dto.nombre,
+        code: nextCode,
+        description: dto.descripcion,
+      }),
+    )
   },
 }
 
 export const internacionService = {
-  /**
-   * Obtener todos los pacientes internados.
-   * Futuro: GET /api/internacion
-   */
   async getAll(): Promise<Internacion[]> {
-    // TODO: return (await axios.get<Internacion[]>(INTERNACION_URL)).data
-    return []
+    const maps = await loadMaps()
+    return maps.stays.map((stay) =>
+      mapAdmission(stay, maps.bedsById, maps.patients, maps.professionals),
+    )
   },
 
-  /**
-   * Obtener internación por ID de paciente.
-   * Futuro: GET /api/internacion?pacienteId=...
-   */
-  async getByPacienteId(_pacienteId: string): Promise<Internacion | null> {
-    // TODO: implementar cuando se conecte el backend
-    return null
+  async getByPacienteId(pacienteId: string): Promise<Internacion | null> {
+    const stay = await api.get<ApiAdmission | null>(
+      `/admissions/by-patient/${pacienteId}`,
+    )
+    if (!stay) return null
+    const maps = await loadMaps()
+    return mapAdmission(stay, maps.bedsById, maps.patients, maps.professionals)
   },
 
-  /**
-   * Registrar nuevo ingreso de internación / asignar cama.
-   * Futuro: POST /api/internacion
-   */
-  async create(_dto: CreateInternacionDTO): Promise<Internacion | null> {
-    // TODO: return (await axios.post<Internacion>(INTERNACION_URL, _dto)).data
-    return null
+  async create(dto: CreateInternacionDTO): Promise<Internacion | null> {
+    const created = await api.post<ApiAdmission>('/admissions', {
+      patientId: dto.pacienteId,
+      bedId: dto.camaId,
+      diagnosis: dto.diagnostico || undefined,
+      treatingProfessionalId: dto.medicoTratanteId || undefined,
+      notes: dto.observaciones,
+      reason: dto.motivo || undefined,
+    })
+    const maps = await loadMaps()
+    return mapAdmission(created, maps.bedsById, maps.patients, maps.professionals)
   },
 
-  /**
-   * Asignar cama a un paciente.
-   * Futuro: PATCH /api/camas/:id/asignar o POST /api/internacion
-   */
-  async asignarCama(_camaId: string, _pacienteId: string): Promise<boolean> {
-    // TODO: implementar cuando se conecte el backend
-    return false
+  async discharge(id: string): Promise<Internacion | null> {
+    const stay = await api.post<ApiAdmission>(`/admissions/${id}/discharge`)
+    const maps = await loadMaps()
+    return mapAdmission(stay, maps.bedsById, maps.patients, maps.professionals)
+  },
+
+  async asignarCama(camaId: string, pacienteId: string): Promise<boolean> {
+    await this.create({
+      pacienteId,
+      camaId,
+      fechaIngreso: new Date().toISOString(),
+    })
+    return true
+  },
+
+  async pacientesInternados() {
+    const stays = await this.getAll()
+    const patients = await Promise.all(
+      stays.map(async (stay) => {
+        const patient = await api.get<ApiPatient>(`/patients/${stay.pacienteId}`)
+        return mapPatient(patient)
+      }),
+    )
+    return { stays, patients }
   },
 }

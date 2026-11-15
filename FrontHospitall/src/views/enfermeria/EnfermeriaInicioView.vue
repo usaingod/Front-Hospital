@@ -1,61 +1,101 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import PageHeader from '@/components/common/PageHeader.vue'
 import StatCard from '@/components/common/StatCard.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
+import type { Cama } from '@/types/internacion'
+import type { Paciente } from '@/types/paciente'
+import { ApiError } from '@/services/api'
+import { camasService, internacionService } from '@/services/camasService'
 
-/**
- * Vista de Inicio — Perfil Enfermería
- * Criterios 1, 2, 3, 5, 8, 9:
- * - Panel general de internación y disponibilidad de camas.
- * - Tarjetas de resumen sin datos ficticios (valores neutros en espera del backend).
- * - Distribución visual de camas por sala con estados (disponible, ocupada, en limpieza).
- * - Accesos rápidos a las secciones principales de Enfermería.
- * - Estados vacíos profesionales cuando no hay datos disponibles.
- */
 const router = useRouter()
+const camas = ref<Cama[]>([])
+const pacientesInternados = ref<Paciente[]>([])
 
-// Indicadores estadísticos — valores neutros hasta conectar la API
-const statCards = [
-  {
-    label: 'Total de camas',
-    icon: 'bi-hospital',
-    colorClass: 'rose' as const,
-    hint: 'Capacidad total del servicio',
-    value: '—',
-  },
-  {
-    label: 'Camas ocupadas',
-    icon: 'bi-person-fill',
-    colorClass: 'rose' as const,
-    hint: 'Con paciente internado',
-    value: '—',
-  },
-  {
-    label: 'Camas disponibles',
-    icon: 'bi-check-circle',
-    colorClass: 'green' as const,
-    hint: 'Listas para asignar',
-    value: '—',
-  },
-  {
-    label: 'En limpieza',
-    icon: 'bi-stars',
-    colorClass: 'amber' as const,
-    hint: 'Temporalmente fuera de servicio',
-    value: '—',
-  },
-  {
-    label: 'Controles pendientes',
-    icon: 'bi-clipboard2-pulse',
-    colorClass: 'blue' as const,
-    hint: 'Signos vitales por registrar',
-    value: '—',
-  },
-]
+const loadData = async () => {
+  const [beds, internados] = await Promise.all([
+    camasService.getAll(),
+    internacionService.pacientesInternados(),
+  ])
+  camas.value = beds
+  pacientesInternados.value = internados.patients
+}
 
-// Accesos rápidos a las secciones del perfil
+onMounted(() => {
+  loadData().catch((err) => {
+    alert(err instanceof ApiError ? err.message : 'No se pudo cargar el panel')
+  })
+})
+
+const statCards = computed(() => {
+  const total = camas.value.length
+  const ocupadas = camas.value.filter((c) => c.estado === 'ocupada').length
+  const disponibles = camas.value.filter((c) => c.estado === 'disponible').length
+  const limpieza = camas.value.filter((c) => c.estado === 'en_limpieza').length
+  return [
+    {
+      label: 'Total de camas',
+      icon: 'bi-hospital',
+      colorClass: 'rose' as const,
+      hint: 'Capacidad total del servicio',
+      value: String(total || '—'),
+    },
+    {
+      label: 'Camas ocupadas',
+      icon: 'bi-person-fill',
+      colorClass: 'rose' as const,
+      hint: 'Con paciente internado',
+      value: String(ocupadas || '—'),
+    },
+    {
+      label: 'Camas disponibles',
+      icon: 'bi-check-circle',
+      colorClass: 'green' as const,
+      hint: 'Listas para asignar',
+      value: String(disponibles || '—'),
+    },
+    {
+      label: 'En limpieza',
+      icon: 'bi-stars',
+      colorClass: 'amber' as const,
+      hint: 'Temporalmente fuera de servicio',
+      value: String(limpieza || '—'),
+    },
+    {
+      label: 'Pacientes internados',
+      icon: 'bi-clipboard2-pulse',
+      colorClass: 'blue' as const,
+      hint: 'Activos en el servicio',
+      value: String(pacientesInternados.value.length || '—'),
+    },
+  ]
+})
+
+const salas = computed(() => {
+  const bySala = new Map<string, Cama[]>()
+  for (const cama of camas.value) {
+    if (cama.estado === 'bloqueada') continue
+    const key = cama.sala || 'Sin sala'
+    const list = bySala.get(key) || []
+    list.push(cama)
+    bySala.set(key, list)
+  }
+  return Array.from(bySala.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([nombre, list]) => ({
+      nombre,
+      camas: list.map((c) => ({
+        id: String(c.id),
+        numero: c.numero,
+        estado: (c.estado === 'disponible' || c.estado === 'ocupada' || c.estado === 'en_limpieza'
+          ? c.estado
+          : 'en_limpieza') as 'disponible' | 'ocupada' | 'en_limpieza',
+        pacienteNombre: c.pacienteNombre,
+      })),
+    }))
+})
+
 const quickActions = [
   {
     title: 'Gestión de camas',
@@ -77,12 +117,8 @@ const quickActions = [
   },
 ]
 
-// Estado de salas (estructura vacía, sin camas inventadas)
-// Se llenará con los datos reales del backend
-const salas = ref<{ nombre: string; camas: { id: string; numero: string; estado: 'disponible' | 'ocupada' | 'en_limpieza'; pacienteNombre?: string }[] }[]>([])
-
 const navigate = (route: string) => {
-  router.push(route)
+  void router.push(route)
 }
 
 const getIconPorEstado = (estado: string): string => {
@@ -100,13 +136,11 @@ const getLabelEstado = (estado: string): string => {
 
 <template>
   <div>
-    <!-- Encabezado de la página -->
     <PageHeader
       title="Inicio — Enfermería"
       description="Panel general de internación, disponibilidad de camas y controles del servicio."
     />
 
-    <!-- Tarjetas de resumen -->
     <div class="row g-3 mb-4">
       <div
         v-for="card in statCards"
@@ -124,7 +158,6 @@ const getLabelEstado = (estado: string): string => {
     </div>
 
     <div class="row g-4">
-      <!-- Columna izquierda: Distribución de camas por sala -->
       <div class="col-12 col-lg-8">
         <div class="hospital-card mb-0">
           <div class="hospital-card-header">
@@ -132,7 +165,6 @@ const getLabelEstado = (estado: string): string => {
               <i class="bi bi-hospital" style="color: var(--hospital-red-primary);"></i>
               <span>Distribución de camas por sala</span>
             </div>
-            <!-- Leyenda de estados -->
             <div class="d-flex align-items-center gap-2 flex-wrap">
               <span class="badge-cama-disponible">
                 <i class="bi bi-circle-fill" style="font-size: 0.55rem;"></i>
@@ -149,7 +181,6 @@ const getLabelEstado = (estado: string): string => {
             </div>
           </div>
           <div class="hospital-card-body">
-            <!-- Estado vacío: sin salas registradas -->
             <div v-if="salas.length === 0">
               <EmptyState
                 icon="bi-hospital"
@@ -157,8 +188,6 @@ const getLabelEstado = (estado: string): string => {
                 description="La distribución de camas por sala estará disponible una vez conectado con el servidor."
               />
             </div>
-
-            <!-- Distribución de salas con sus camas -->
             <div v-else>
               <div
                 v-for="sala in salas"
@@ -196,7 +225,6 @@ const getLabelEstado = (estado: string): string => {
         </div>
       </div>
 
-      <!-- Columna derecha: Accesos rápidos -->
       <div class="col-12 col-lg-4">
         <div class="hospital-card mb-0">
           <div class="hospital-card-header">
@@ -227,32 +255,35 @@ const getLabelEstado = (estado: string): string => {
               </button>
             </div>
 
-            <!-- Estado vacío: sin pacientes internados -->
             <div class="mt-4 pt-3 border-top">
               <div class="d-flex align-items-center gap-2 mb-2">
                 <i class="bi bi-person-heart" style="color: var(--hospital-red-primary);"></i>
                 <span class="fw-semibold text-dark small">Pacientes internados</span>
               </div>
-              <EmptyState
-                icon="bi-people"
-                title="No hay pacientes internados"
-                description="Los pacientes internados se mostrarán aquí una vez provistos por el servidor."
-                compact
-              />
-            </div>
-
-            <!-- Estado vacío: sin controles pendientes -->
-            <div class="mt-3 pt-3 border-top">
-              <div class="d-flex align-items-center gap-2 mb-2">
-                <i class="bi bi-clipboard2-pulse" style="color: var(--hospital-red-primary);"></i>
-                <span class="fw-semibold text-dark small">Controles pendientes</span>
+              <div v-if="pacientesInternados.length === 0">
+                <EmptyState
+                  icon="bi-people"
+                  title="No hay pacientes internados"
+                  description="Los pacientes internados se mostrarán aquí una vez provistos por el servidor."
+                  compact
+                />
               </div>
-              <EmptyState
-                icon="bi-clipboard-check"
-                title="No hay controles pendientes"
-                description="Los controles de signos vitales pendientes se listarán aquí al conectar con el servidor."
-                compact
-              />
+              <ul v-else class="list-unstyled mb-0">
+                <li
+                  v-for="paciente in pacientesInternados.slice(0, 5)"
+                  :key="paciente.id"
+                  class="d-flex justify-content-between align-items-center py-1 border-bottom"
+                >
+                  <span class="small">{{ paciente.apellido }}, {{ paciente.nombre }}</span>
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-link text-decoration-none"
+                    @click="router.push('/enfermeria/paciente')"
+                  >
+                    Ver
+                  </button>
+                </li>
+              </ul>
             </div>
           </div>
         </div>

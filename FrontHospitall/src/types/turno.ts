@@ -11,10 +11,16 @@ export interface Turno {
   hora: string
   paciente: string
   pacienteDni?: string
+  pacienteId?: string
   especialidad: string
   medico: string
+  medicoId?: string
   estado: TurnoEstado
   observaciones?: string
+  startAt?: string
+  endAt?: string
+  branchId?: string
+  statusApi?: string
 }
 
 export interface TurnoFilter {
@@ -30,8 +36,12 @@ export interface CreateTurnoDTO {
   hora: string
   especialidad: string
   medico: string
+  medicoId?: string
+  pacienteId?: string
   tipoPaciente: 'existente' | 'nuevo'
   pacienteBusqueda?: string
+  observaciones?: string
+  entreturno?: boolean
   nuevoPaciente?: {
     nombre: string
     apellido: string
@@ -40,4 +50,16 @@ export interface CreateTurnoDTO {
     email: string
     obraSocial: string
   }
+}
+
+export interface WaitlistItem {
+  id: string
+  patientId: string
+  professionalId: string
+  branchId: string
+  day: string
+  createdAt: string
+  pacienteNombre?: string
+  pacienteDni?: string
+  medicoNombre?: string
 }

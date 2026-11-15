@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import PageHeader from '@/components/common/PageHeader.vue'
 import StatCard from '@/components/common/StatCard.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import type { Turno } from '@/types/turno'
+import { ApiError } from '@/services/api'
+import { turnosService } from '@/services/turnosService'
 
 /**
  * Vista de Inicio (Secretaría)
@@ -13,40 +15,50 @@ import type { Turno } from '@/types/turno'
  */
 const router = useRouter()
 
-// Colección reactiva de turnos de hoy (inicia vacía según la regla de no incorporar datos ficticios)
 const turnosHoy = ref<Turno[]>([])
+const todayIso = new Date().toISOString().substring(0, 10)
 
-// Indicadores estadísticos sin datos ficticios (muestran guion según especificación)
-const statCards = [
+onMounted(() => {
+  turnosService
+    .getTurnos({ fecha: todayIso })
+    .then((rows) => {
+      turnosHoy.value = rows
+    })
+    .catch((err) => {
+      alert(err instanceof ApiError ? err.message : 'No se pudieron cargar los turnos')
+    })
+})
+
+const statCards = computed(() => [
   {
     label: 'Turnos del día',
     icon: 'bi-calendar-check',
     colorClass: 'green' as const,
     hint: 'Total programado para hoy',
-    value: '—',
+    value: String(turnosHoy.value.length || '—'),
   },
   {
     label: 'Confirmados',
     icon: 'bi-check2-circle',
     colorClass: 'blue' as const,
     hint: 'Pacientes con asistencia confirmada',
-    value: '—',
+    value: String(turnosHoy.value.filter((t) => t.estado === 'confirmado').length || '—'),
   },
   {
     label: 'Pendientes',
     icon: 'bi-hourglass-split',
     colorClass: 'amber' as const,
     hint: 'Por confirmar o en espera',
-    value: '—',
+    value: String(turnosHoy.value.filter((t) => t.estado === 'pendiente').length || '—'),
   },
   {
     label: 'Cancelados',
     icon: 'bi-x-circle',
     colorClass: 'rose' as const,
     hint: 'Turnos cancelados hoy',
-    value: '—',
+    value: String(turnosHoy.value.filter((t) => t.estado === 'cancelado').length || '—'),
   },
-]
+])
 
 // Accesos directos a secciones clave
 const quickActions = [

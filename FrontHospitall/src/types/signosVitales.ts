@@ -19,6 +19,7 @@ export interface SignosVitales {
   frecuenciaCardiaca: number // lpm
   presionSistolica: number  // mmHg
   presionDiastolica: number // mmHg
+  fueraDeRango?: boolean
   observaciones?: string    // Solo si el backend lo contempla
 }
 
@@ -28,6 +29,7 @@ export interface SignosVitales {
  */
 export interface CreateSignosVitalesDTO {
   pacienteId: string
+  internacionId?: string
   fechaHora: string
   temperatura: number
   frecuenciaCardiaca: number

@@ -1,60 +1,96 @@
-import type { Usuario, UsuarioFilter, CreateUsuarioDTO } from '@/types/usuario'
+import { api } from '@/services/api'
+import type { ApiUser } from '@/types/api'
+import type { CreateUsuarioDTO, Usuario, UsuarioFilter } from '@/types/usuario'
 
-/**
- * Capa de servicios para la gestión de Usuarios del Sistema.
- * 
- * Separación de responsabilidades (Criterio 1 y Criterio 7):
- * Centraliza las futuras operaciones de comunicación con el backend (GET, POST, PUT, DELETE).
- * Actualmente preparado a nivel de firmas y contratos TypeScript.
- * En esta etapa retorna colecciones vacías para cumplir estrictamente con la regla
- * de no incorporar datos ficticios en la aplicación.
- */
+const roleToUi: Record<ApiUser['role'], Usuario['rol']> = {
+  admin: 'Administrador',
+  secretaria: 'Secretaria',
+  profesional: 'Profesional',
+  enfermero: 'Enfermero',
+}
+
+const roleFromUi: Record<Usuario['rol'], ApiUser['role']> = {
+  Administrador: 'admin',
+  Secretaria: 'secretaria',
+  Profesional: 'profesional',
+  Enfermero: 'enfermero',
+}
+
+function splitName(name: string) {
+  const parts = name.trim().split(/\s+/)
+  return {
+    nombre: parts[0] || name,
+    apellido: parts.slice(1).join(' '),
+  }
+}
+
+function mapUser(u: ApiUser): Usuario {
+  const { nombre, apellido } = splitName(u.name)
+  return {
+    id: u.id,
+    nombre,
+    apellido,
+    email: u.email,
+    rol: roleToUi[u.role],
+    estado: u.active ? 'activo' : 'inactivo',
+    fechaRegistro: u.createdAt,
+  }
+}
+
 export const usuariosService = {
-  /**
-   * Obtener listado de usuarios del sistema con filtros opcionales.
-   * Punto de integración futuro: GET /api/usuarios
-   */
-  async getUsuarios(_filters?: UsuarioFilter): Promise<Usuario[]> {
-    // TODO: Conectar con backend cuando los endpoints estén disponibles.
-    return []
+  async getUsuarios(filters?: UsuarioFilter): Promise<Usuario[]> {
+    const rows = (await api.get<ApiUser[]>('/users')).map(mapUser)
+    return rows.filter((item) => {
+      const q = filters?.query?.trim().toLowerCase() || ''
+      const matchesQuery =
+        !q ||
+        item.nombre.toLowerCase().includes(q) ||
+        item.apellido.toLowerCase().includes(q) ||
+        item.email.toLowerCase().includes(q)
+      const matchesRol = !filters?.rol || item.rol === filters.rol
+      const matchesEstado = !filters?.estado || item.estado === filters.estado
+      return matchesQuery && matchesRol && matchesEstado
+    })
   },
 
-  /**
-   * Obtener un usuario por su identificador.
-   * Punto de integración futuro: GET /api/usuarios/:id
-   */
-  async getUsuarioById(_id: number | string): Promise<Usuario | null> {
-    // TODO: Conectar con backend cuando los endpoints estén disponibles.
-    return null
+  async getUsuarioById(id: number | string): Promise<Usuario | null> {
+    const rows = await this.getUsuarios()
+    return rows.find((u) => String(u.id) === String(id)) || null
   },
 
-  /**
-   * Registrar un nuevo usuario en el sistema.
-   * Punto de integración futuro: POST /api/usuarios
-   */
-  async createUsuario(_data: CreateUsuarioDTO): Promise<Usuario | null> {
-    // TODO: Conectar con backend cuando los endpoints estén disponibles.
-    return null
+  async createUsuario(data: CreateUsuarioDTO): Promise<Usuario | null> {
+    return mapUser(
+      await api.post<ApiUser>('/users', {
+        email: data.email,
+        password: data.password,
+        name: `${data.nombre} ${data.apellido}`.trim(),
+        role: roleFromUi[data.rol],
+        active: data.estado !== 'inactivo',
+      }),
+    )
   },
 
-  /**
-   * Actualizar los datos de un usuario existente.
-   * Punto de integración futuro: PUT /api/usuarios/:id
-   */
   async updateUsuario(
-    _id: number | string,
-    _data: Partial<CreateUsuarioDTO>
+    id: number | string,
+    data: Partial<CreateUsuarioDTO>,
   ): Promise<Usuario | null> {
-    // TODO: Conectar con backend cuando los endpoints estén disponibles.
-    return null
+    return mapUser(
+      await api.patch<ApiUser>(`/users/${id}`, {
+        email: data.email,
+        password: data.password || undefined,
+        name:
+          data.nombre || data.apellido
+            ? `${data.nombre || ''} ${data.apellido || ''}`.trim()
+            : undefined,
+        role: data.rol ? roleFromUi[data.rol] : undefined,
+        active:
+          data.estado === undefined ? undefined : data.estado !== 'inactivo',
+      }),
+    )
   },
 
-  /**
-   * Eliminar o dar de baja a un usuario.
-   * Punto de integración futuro: DELETE /api/usuarios/:id
-   */
-  async deleteUsuario(_id: number | string): Promise<boolean> {
-    // TODO: Conectar con backend cuando los endpoints estén disponibles.
-    return false
+  async deleteUsuario(id: number | string): Promise<boolean> {
+    await api.patch(`/users/${id}`, { active: false })
+    return true
   },
 }

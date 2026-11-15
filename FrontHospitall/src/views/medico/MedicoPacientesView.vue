@@ -7,6 +7,10 @@ import type { Paciente } from '@/types/paciente'
 import type { Internacion, InternacionFilter } from '@/types/internacion'
 import type { Prescripcion, CreatePrescripcionDTO } from '@/types/prescripcion'
 import type { Supply } from '@/types/prescripcion'
+import { ApiError } from '@/services/api'
+import { internacionService } from '@/services/camasService'
+import { pacientesService } from '@/services/pacientesService'
+import { prescripcionService, supplyService } from '@/services/prescripcionService'
 
 /**
  * Vista de Pacientes e Historia Clínica — Perfil Médico
@@ -116,11 +120,20 @@ const hayFiltrosInternacion = computed(
     !!filtrosInternacion.value.estado,
 )
 
-const selectInternacion = (internacion: Internacion) => {
+const selectInternacion = async (internacion: Internacion) => {
   selectedInternacion.value = internacion
   activeTabInternacion.value = 'medicacion'
-  // En la integración real: cargar prescripciones del backend
-  prescripciones.value = []
+  try {
+    const [patient, meds] = await Promise.all([
+      pacientesService.getPacienteById(internacion.pacienteId),
+      prescripcionService.getByPacienteId(internacion.pacienteId),
+    ])
+    selectedPatientInternacion.value = patient
+    prescripciones.value = meds
+  } catch (err) {
+    prescripciones.value = []
+    alert(err instanceof ApiError ? err.message : 'No se pudo cargar la internación')
+  }
 }
 
 const clearSelectedInternacion = () => {
@@ -178,20 +191,42 @@ const validarFormPrescripcion = (): boolean => {
   return Object.keys(errores).length === 0
 }
 
-const crearPrescripcion = () => {
+const crearPrescripcion = async () => {
   if (!validarFormPrescripcion()) return
-  if (isSubmittingPrescripcion.value) return
-
-  // En esta etapa NO se realiza la petición HTTP.
-  // Cuando se conecte el backend, aquí se llamará a:
-  // await prescripcionService.create(selectedInternacion.value!.pacienteId, formPrescripcion.value)
+  if (isSubmittingPrescripcion.value || !selectedInternacion.value) return
+  isSubmittingPrescripcion.value = true
+  try {
+    await prescripcionService.create(
+      selectedInternacion.value.pacienteId,
+      formPrescripcion.value,
+    )
+    prescripciones.value = await prescripcionService.getByPacienteId(
+      selectedInternacion.value.pacienteId,
+    )
+    cerrarModalPrescripcion()
+  } catch (err) {
+    alert(err instanceof ApiError ? err.message : 'No se pudo crear la indicación')
+  } finally {
+    isSubmittingPrescripcion.value = false
+  }
 }
 
-// Helpers para pestaña historia en padrón de turnos
-onMounted(() => {
+onMounted(async () => {
   const queryTab = route.query.tab as string
   if (queryTab && ['historia', 'turnos', 'datos', 'observaciones'].includes(queryTab)) {
     activeTabTurnos.value = queryTab as 'historia' | 'turnos' | 'datos' | 'observaciones'
+  }
+  try {
+    const [patients, stays, supplies] = await Promise.all([
+      pacientesService.getPacientes(),
+      internacionService.getAll(),
+      supplyService.getAll(),
+    ])
+    pacientesTurnos.value = patients
+    internaciones.value = stays
+    catalogoSupplies.value = supplies
+  } catch (err) {
+    alert(err instanceof ApiError ? err.message : 'No se pudieron cargar los pacientes')
   }
 })
 </script>

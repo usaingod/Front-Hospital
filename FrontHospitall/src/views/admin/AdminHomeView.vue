@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import PageHeader from '@/components/common/PageHeader.vue'
 import StatCard from '@/components/common/StatCard.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import type { Especialidad } from '@/types/especialidad'
 import type { Medico } from '@/types/medico'
+import { ApiError } from '@/services/api'
+import { especialidadesService } from '@/services/especialidadesService'
+import { medicosService } from '@/services/medicosService'
 
 /**
  * Vista: Inicio del Administrador (AdminHomeView.vue)
@@ -17,37 +20,38 @@ import type { Medico } from '@/types/medico'
  */
 const router = useRouter()
 
-// Tarjetas estadísticas sin cantidades ficticias (valores en guión según especificación)
-const statCards = [
+const medicos = ref<Medico[]>([])
+
+const statCards = computed(() => [
   {
     label: 'Especialidades',
     icon: 'bi-award',
     colorClass: 'blue' as const,
     hint: 'Áreas de atención médica',
-    value: '—',
+    value: String(especialidades.value.length || '—'),
   },
   {
     label: 'Médicos Registrados',
     icon: 'bi-person-badge',
     colorClass: 'blue' as const,
     hint: 'Padrón profesional total',
-    value: '—',
+    value: String(medicos.value.length || '—'),
   },
   {
     label: 'Médicos Activos',
     icon: 'bi-person-check',
     colorClass: 'green' as const,
     hint: 'Disponibles en el sistema',
-    value: '—',
+    value: String(medicos.value.filter((m) => m.estado === 'activo').length || '—'),
   },
   {
     label: 'Médicos Inactivos',
     icon: 'bi-person-x',
     colorClass: 'rose' as const,
     hint: 'En licencia o inactivos',
-    value: '—',
+    value: String(medicos.value.filter((m) => m.estado !== 'activo').length || '—'),
   },
-]
+])
 
 // Accesos directos a la gestión de administración
 const quickAdminActions = [
@@ -71,11 +75,22 @@ const quickAdminActions = [
   },
 ]
 
-// Colección reactiva de especialidades (inicia vacía sin datos ficticios)
 const especialidades = ref<(Especialidad & { medicosAsociados?: Medico[] })[]>([])
-
-// Búsqueda de especialidades
 const searchSpecialtyQuery = ref('')
+
+onMounted(() => {
+  Promise.all([especialidadesService.getEspecialidades(), medicosService.getMedicos()])
+    .then(([esp, docs]) => {
+      medicos.value = docs
+      especialidades.value = esp.map((e) => ({
+        ...e,
+        medicosAsociados: docs.filter((m) => m.especialidad.includes(e.nombre)),
+      }))
+    })
+    .catch((err) => {
+      alert(err instanceof ApiError ? err.message : 'No se pudo cargar el panel')
+    })
+})
 
 // Control de tarjetas expandidas (conjunto reactivo de IDs)
 const expandedSpecialtyIds = ref<Set<string | number>>(new Set())

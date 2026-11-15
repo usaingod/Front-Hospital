@@ -1,8 +1,13 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import type { Turno } from '@/types/turno'
+import { ApiError } from '@/services/api'
+import { useAuthStore } from '@/stores/auth'
+import { turnosService } from '@/services/turnosService'
+
+const actionBusy = ref(false)
 
 /**
  * Vista de Turnos (Perfil Médico)
@@ -29,8 +34,36 @@ const filterFranja = ref<'todos' | 'manana' | 'tarde' | 'vespertino'>('todos')
 // Turno seleccionado para visualización en el panel lateral de detalle
 const selectedTurno = ref<Turno | null>(null)
 
-// Colección reactiva de turnos del médico (inicia vacía sin datos ficticios)
+const auth = useAuthStore()
 const turnos = ref<Turno[]>([])
+
+onMounted(() => {
+  turnosService
+    .getTurnos()
+    .then((rows) => {
+      turnos.value = auth.user?.professionalId
+        ? rows.filter((t) => String(t.medicoId) === String(auth.user?.professionalId))
+        : rows
+    })
+    .catch((err) => {
+      alert(err instanceof ApiError ? err.message : 'No se pudieron cargar los turnos')
+    })
+})
+
+const turnosDelDia = computed(() =>
+  turnos.value.filter((t) => {
+    const matchesFecha = t.fecha === selectedDate.value
+    const matchesEstado = !filterEstado.value || t.estado === filterEstado.value
+    const matchesFranja =
+      filterFranja.value === 'todos' ||
+      (filterFranja.value === 'manana' && t.hora <= '12:30') ||
+      (filterFranja.value === 'tarde' && t.hora >= '13:00' && t.hora <= '17:30') ||
+      (filterFranja.value === 'vespertino' && t.hora >= '18:00')
+    return matchesFecha && matchesEstado && matchesFranja
+  }),
+)
+
+const turnoEnHora = (hora: string) => turnosDelDia.value.find((t) => t.hora === hora)
 
 // Intervalos de 30 minutos desde las 08:00 hasta las 20:00
 const baseTimeSlots = [
@@ -131,6 +164,42 @@ const handleSelectTurno = (turno: Turno) => {
 
 const closeDetailPanel = () => {
   selectedTurno.value = null
+}
+
+const reloadTurnos = async () => {
+  const rows = await turnosService.getTurnos()
+  turnos.value = auth.user?.professionalId
+    ? rows.filter((t) => String(t.medicoId) === String(auth.user?.professionalId))
+    : rows
+  if (selectedTurno.value) {
+    selectedTurno.value =
+      turnos.value.find((t) => String(t.id) === String(selectedTurno.value?.id)) || null
+  }
+}
+
+const marcarAtendido = async () => {
+  if (!selectedTurno.value || actionBusy.value) return
+  if (selectedTurno.value.statusApi !== 'en_sala_de_espera') {
+    alert('Solo se puede marcar atendido si el paciente está en sala de espera')
+    return
+  }
+  actionBusy.value = true
+  try {
+    await turnosService.updateStatus(selectedTurno.value.id, 'atendido')
+    await reloadTurnos()
+  } catch (err) {
+    alert(err instanceof ApiError ? err.message : 'No se pudo marcar como atendido')
+  } finally {
+    actionBusy.value = false
+  }
+}
+
+const estadoLabel = (turno: Turno) => {
+  if (turno.statusApi === 'en_sala_de_espera') return 'En sala de espera'
+  if (turno.statusApi === 'programado') return 'Programado'
+  if (turno.statusApi === 'atendido') return 'Atendido'
+  if (turno.statusApi === 'cancelado') return 'Cancelado'
+  return turno.estado
 }
 
 const resetFilters = () => {
@@ -318,15 +387,26 @@ const resetFilters = () => {
                   v-for="timeSlot in filteredTimeSlots"
                   :key="timeSlot"
                   class="medico-agenda-slot"
+                  role="button"
+                  @click="turnoEnHora(timeSlot) && (selectedTurno = turnoEnHora(timeSlot) || null)"
                 >
                   <div class="medico-slot-time">{{ timeSlot }}</div>
                   <div class="medico-slot-content">
-                    <span class="text-muted small fst-italic">
+                    <span
+                      v-if="turnoEnHora(timeSlot)"
+                      class="fw-semibold small"
+                    >
+                      {{ turnoEnHora(timeSlot)?.paciente }}
+                    </span>
+                    <span v-else class="text-muted small fst-italic">
                       Sin consultas asignadas en esta franja
                     </span>
                   </div>
-                  <span class="badge bg-light text-muted border">
-                    Disponible
+                  <span
+                    class="badge border"
+                    :class="turnoEnHora(timeSlot) ? 'bg-warning-subtle text-warning-emphasis border-warning-subtle' : 'bg-light text-muted'"
+                  >
+                    {{ turnoEnHora(timeSlot)?.estado || 'Disponible' }}
                   </span>
                 </div>
               </div>
@@ -356,8 +436,13 @@ const resetFilters = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    <template v-if="turnos.length > 0">
-                      <tr v-for="turno in turnos" :key="turno.id">
+                    <template v-if="turnosDelDia.length > 0">
+                      <tr
+                        v-for="turno in turnosDelDia"
+                        :key="turno.id"
+                        role="button"
+                        @click="selectedTurno = turno"
+                      >
                         <td>{{ turno.hora }}</td>
                         <td>{{ turno.paciente }}</td>
                         <td>{{ turno.especialidad }}</td>
@@ -503,7 +588,7 @@ const resetFilters = () => {
             <div class="mb-3">
               <div class="text-muted small">Estado</div>
               <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle mt-1">
-                {{ selectedTurno.estado }}
+                {{ estadoLabel(selectedTurno) }}
               </span>
             </div>
 
@@ -514,7 +599,17 @@ const resetFilters = () => {
               </p>
             </div>
 
-            <div class="pt-3 border-top d-flex gap-2">
+            <div class="pt-3 border-top d-grid gap-2">
+              <button
+                v-if="selectedTurno.statusApi === 'en_sala_de_espera'"
+                type="button"
+                class="btn btn-sm btn-hospital-primary"
+                :disabled="actionBusy"
+                @click="marcarAtendido"
+              >
+                <i class="bi bi-check2-circle me-1"></i>
+                Marcar como atendido
+              </button>
               <button
                 type="button"
                 class="btn btn-sm btn-outline-secondary w-100"

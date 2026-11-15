@@ -1,52 +1,51 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import BaseModal from '@/components/common/BaseModal.vue'
+import EmptyState from '@/components/common/EmptyState.vue'
+import type { Medico } from '@/types/medico'
+import type { Paciente } from '@/types/paciente'
+import type { Turno, WaitlistItem } from '@/types/turno'
+import { ApiError } from '@/services/api'
+import { billingService } from '@/services/billingService'
+import { medicosService } from '@/services/medicosService'
+import { pacientesService } from '@/services/pacientesService'
+import { turnosService } from '@/services/turnosService'
 
-/**
- * Vista de Turnos (Secretaría)
- * Criterios 1, 2, 3, 5, 8, 9:
- * - Directivas v-if, v-else, v-for, v-model, :class
- * - Componentes reutilizables PageHeader y BaseModal
- * - Grilla responsive con intervalos de 30 minutos y columnas de médicos
- * - Filtros visuales y navegación temporal
- * - Sin datos ficticios precargados
- */
-
-// Vistas del calendario: Día, Semana, Mes
 const viewMode = ref<'dia' | 'semana' | 'mes'>('dia')
-
-// Fecha actual seleccionada (formato YYYY-MM-DD)
 const selectedDate = ref(new Date().toISOString().substring(0, 10))
-
-// Filtros visuales
 const filterEspecialidad = ref('')
 const filterMedico = ref('')
 const filterPaciente = ref('')
 const filterTurnoHorario = ref<'todos' | 'manana' | 'tarde' | 'vespertino'>('todos')
-
-// Modales y formularios visuales
 const isNewTurnoModalOpen = ref(false)
 const pacienteType = ref<'existente' | 'nuevo'>('existente')
+const isSubmitting = ref(false)
+const selectedTurno = ref<Turno | null>(null)
+const waitlist = ref<WaitlistItem[]>([])
+const actionBusy = ref(false)
 
-// Campos del formulario vacío de asignación
+const medicos = ref<Medico[]>([])
+const especialidades = ref<string[]>([])
+const pacientes = ref<Paciente[]>([])
+const turnos = ref<Turno[]>([])
+
 const turnoForm = ref({
   fecha: '',
   hora: '',
   especialidad: '',
   medico: '',
-  // Paciente existente
+  pacienteId: '',
   pacienteBusqueda: '',
-  // Paciente nuevo
   nuevoNombre: '',
   nuevoApellido: '',
   nuevoDni: '',
   nuevoTelefono: '',
   nuevoEmail: '',
   nuevoObraSocial: '',
+  entreturno: false,
 })
 
-// Intervalos de 30 minutos desde las 08:00 hasta las 20:00
 const timeSlots = [
   '08:00', '08:30', '09:00', '09:30', '10:00', '10:30',
   '11:00', '11:30', '12:00', '12:30', '13:00', '13:30',
@@ -54,26 +53,114 @@ const timeSlots = [
   '17:00', '17:30', '18:00', '18:30', '19:00', '19:30', '20:00',
 ]
 
-// Filtrado de intervalos según el filtro de horario visual
+const entreturnoSlots = [
+  '09:15', '09:45', '10:15', '10:45', '11:15', '11:45',
+  '12:15', '14:15', '14:45', '15:15', '15:45', '16:15', '16:45', '17:15', '17:45',
+]
+
 const filteredTimeSlots = computed(() => {
-  if (filterTurnoHorario.value === 'manana') {
-    return timeSlots.filter((t) => t <= '12:30')
-  } else if (filterTurnoHorario.value === 'tarde') {
-    return timeSlots.filter((t) => t >= '13:00' && t <= '17:30')
-  } else if (filterTurnoHorario.value === 'vespertino') {
-    return timeSlots.filter((t) => t >= '18:00')
+  if (turnoForm.value.entreturno && isNewTurnoModalOpen.value) {
+    return entreturnoSlots
   }
+  if (filterTurnoHorario.value === 'manana') return timeSlots.filter((t) => t <= '12:30')
+  if (filterTurnoHorario.value === 'tarde') return timeSlots.filter((t) => t >= '13:00' && t <= '17:30')
+  if (filterTurnoHorario.value === 'vespertino') return timeSlots.filter((t) => t >= '18:00')
   return timeSlots
 })
 
-// Estructura de columnas para médicos (conserva su estructura vacía a la espera del backend)
-const preparedDoctorColumns = [
-  { id: 1, name: '', specialty: '' },
-  { id: 2, name: '', specialty: '' },
-  { id: 3, name: '', specialty: '' },
-]
+const gridTimeSlots = computed(() => {
+  if (filterTurnoHorario.value === 'manana') return timeSlots.filter((t) => t <= '12:30')
+  if (filterTurnoHorario.value === 'tarde') return timeSlots.filter((t) => t >= '13:00' && t <= '17:30')
+  if (filterTurnoHorario.value === 'vespertino') return timeSlots.filter((t) => t >= '18:00')
+  return timeSlots
+})
 
-// Funciones de navegación de fecha
+const preparedDoctorColumns = computed(() => {
+  return medicos.value
+    .filter((m) => !filterEspecialidad.value || m.especialidad.includes(filterEspecialidad.value))
+    .filter((m) => !filterMedico.value || String(m.id) === filterMedico.value)
+    .map((m) => ({
+      id: String(m.id),
+      name: `${m.apellido || ''}, ${m.nombre}`.replace(/^,\s*/, ''),
+      specialty: m.especialidad,
+    }))
+})
+
+const turnosDelDia = computed(() => {
+  return turnos.value.filter((t) => {
+    const matchesFecha = t.fecha === selectedDate.value
+    const matchesPaciente =
+      !filterPaciente.value ||
+      t.paciente.toLowerCase().includes(filterPaciente.value.toLowerCase()) ||
+      (t.pacienteDni || '').includes(filterPaciente.value)
+    return matchesFecha && matchesPaciente
+  })
+})
+
+const waitlistDelDia = computed(() =>
+  waitlist.value.filter((w) => w.day === selectedDate.value),
+)
+
+const slotTurno = (medicoId: string, hora: string) =>
+  turnosDelDia.value.find((t) => String(t.medicoId) === medicoId && t.hora === hora)
+
+const estadoLabel = (turno: Turno) => {
+  if (turno.statusApi === 'en_sala_de_espera') return 'En sala de espera'
+  if (turno.statusApi === 'programado') return 'Programado'
+  if (turno.statusApi === 'atendido') return 'Atendido'
+  if (turno.statusApi === 'cancelado') return 'Cancelado'
+  return turno.estado
+}
+
+const estadoBadgeClass = (turno: Turno) => {
+  if (turno.statusApi === 'en_sala_de_espera') {
+    return 'badge bg-info-subtle text-info-emphasis border border-info-subtle'
+  }
+  if (turno.statusApi === 'atendido') {
+    return 'badge bg-success-subtle text-success-emphasis border border-success-subtle'
+  }
+  if (turno.statusApi === 'cancelado') {
+    return 'badge bg-secondary-subtle text-secondary-emphasis border'
+  }
+  return 'badge bg-warning-subtle text-warning-emphasis border border-warning-subtle'
+}
+
+const loadData = async () => {
+  const [docs, esp, pats, apps, waiting] = await Promise.all([
+    medicosService.getMedicos(),
+    medicosService.getEspecialidades(),
+    pacientesService.getPacientes(),
+    turnosService.getTurnos(),
+    turnosService.getWaitlist(selectedDate.value),
+  ])
+  medicos.value = docs
+  especialidades.value = esp
+  pacientes.value = pats
+  turnos.value = apps
+  waitlist.value = waiting
+  if (selectedTurno.value) {
+    selectedTurno.value =
+      apps.find((t) => String(t.id) === String(selectedTurno.value?.id)) || null
+  }
+}
+
+onMounted(() => {
+  loadData().catch((err) => {
+    alert(err instanceof ApiError ? err.message : 'No se pudieron cargar los turnos')
+  })
+})
+
+watch(selectedDate, () => {
+  turnosService
+    .getWaitlist(selectedDate.value)
+    .then((rows) => {
+      waitlist.value = rows
+    })
+    .catch(() => {
+      waitlist.value = []
+    })
+})
+
 const prevDate = () => {
   const current = new Date(selectedDate.value)
   current.setDate(current.getDate() - 1)
@@ -93,10 +180,7 @@ const setToday = () => {
 const formattedDisplayDate = computed(() => {
   if (!selectedDate.value) return ''
   const parts = selectedDate.value.split('-').map(Number)
-  const year = parts[0] ?? 2026
-  const month = parts[1] ?? 1
-  const day = parts[2] ?? 1
-  const d = new Date(year, month - 1, day)
+  const d = new Date(parts[0] ?? 2026, (parts[1] ?? 1) - 1, parts[2] ?? 1)
   return d.toLocaleDateString('es-ES', {
     weekday: 'long',
     day: 'numeric',
@@ -105,10 +189,25 @@ const formattedDisplayDate = computed(() => {
   })
 })
 
-// Abrir modal de asignación al hacer clic en un horario o botón
-const openAssignModal = (slotTime?: string) => {
-  turnoForm.value.fecha = selectedDate.value
-  turnoForm.value.hora = slotTime || ''
+const openAssignModal = (slotTime?: string, medicoId?: string) => {
+  turnoForm.value = {
+    fecha: selectedDate.value,
+    hora: slotTime || '',
+    especialidad: '',
+    medico: medicoId || '',
+    pacienteId: '',
+    pacienteBusqueda: '',
+    nuevoNombre: '',
+    nuevoApellido: '',
+    nuevoDni: '',
+    nuevoTelefono: '',
+    nuevoEmail: '',
+    nuevoObraSocial: '',
+    entreturno: false,
+  }
+  const doc = medicos.value.find((m) => String(m.id) === medicoId)
+  turnoForm.value.especialidad = doc?.especialidad || ''
+  pacienteType.value = 'existente'
   isNewTurnoModalOpen.value = true
 }
 
@@ -116,13 +215,101 @@ const closeAssignModal = () => {
   isNewTurnoModalOpen.value = false
 }
 
-const handleAssignSubmit = () => {
-  // Confirmación clara de estado pendiente de integración sin resultados engañosos
-  alert('Formulario de asignación validado. El guardado efectivo se conectará con el backend en etapas posteriores.')
-  closeAssignModal()
+const handleAssignSubmit = async () => {
+  if (!turnoForm.value.fecha || !turnoForm.value.hora || !turnoForm.value.medico) {
+    alert('Completá fecha, hora y médico')
+    return
+  }
+  if (turnoForm.value.entreturno) {
+    const minute = Number(turnoForm.value.hora.split(':')[1] || -1)
+    if (minute !== 15 && minute !== 45) {
+      alert('Un entreturno solo puede empezar a los :15 o a los :45')
+      return
+    }
+  }
+  isSubmitting.value = true
+  try {
+    await turnosService.createTurno({
+      fecha: turnoForm.value.fecha,
+      hora: turnoForm.value.hora,
+      especialidad: turnoForm.value.especialidad,
+      medico: turnoForm.value.medico,
+      medicoId: turnoForm.value.medico,
+      pacienteId: pacienteType.value === 'existente' ? turnoForm.value.pacienteId : undefined,
+      tipoPaciente: pacienteType.value,
+      pacienteBusqueda: turnoForm.value.pacienteBusqueda,
+      entreturno: turnoForm.value.entreturno,
+      nuevoPaciente:
+        pacienteType.value === 'nuevo'
+          ? {
+              nombre: turnoForm.value.nuevoNombre,
+              apellido: turnoForm.value.nuevoApellido,
+              dni: turnoForm.value.nuevoDni,
+              telefono: turnoForm.value.nuevoTelefono,
+              email: turnoForm.value.nuevoEmail,
+              obraSocial: turnoForm.value.nuevoObraSocial,
+            }
+          : undefined,
+    })
+    await loadData()
+    closeAssignModal()
+  } catch (err) {
+    alert(
+      err instanceof ApiError || err instanceof Error
+        ? err.message
+        : 'No se pudo asignar el turno',
+    )
+    if (err instanceof Error && err.message.includes('lista de espera')) {
+      await loadData()
+    }
+  } finally {
+    isSubmitting.value = false
+  }
 }
 
-// Acción visual para resetear filtros
+const openTurnoDetail = (turno: Turno) => {
+  selectedTurno.value = turno
+}
+
+const closeTurnoDetail = () => {
+  selectedTurno.value = null
+}
+
+const runAction = async (fn: () => Promise<unknown>, okMessage?: string) => {
+  if (actionBusy.value) return
+  actionBusy.value = true
+  try {
+    await fn()
+    await loadData()
+    if (okMessage) alert(okMessage)
+  } catch (err) {
+    alert(err instanceof ApiError || err instanceof Error ? err.message : 'No se pudo completar la acción')
+  } finally {
+    actionBusy.value = false
+  }
+}
+
+const pasarASala = () => {
+  if (!selectedTurno.value) return
+  void runAction(() =>
+    turnosService.updateStatus(selectedTurno.value!.id, 'en_sala_de_espera'),
+  )
+}
+
+const cancelarTurno = () => {
+  if (!selectedTurno.value) return
+  if (!confirm('¿Cancelar este turno? Si hay lista de espera, se promoverá el primero.')) return
+  void runAction(() => turnosService.cancelTurno(selectedTurno.value!.id))
+}
+
+const facturarConsulta = () => {
+  if (!selectedTurno.value) return
+  void runAction(
+    () => billingService.chargeConsultation(selectedTurno.value!.id, 15000),
+    'Consulta facturada. El saldo del paciente se actualizó.',
+  )
+}
+
 const resetFilters = () => {
   filterEspecialidad.value = ''
   filterMedico.value = ''
@@ -133,7 +320,6 @@ const resetFilters = () => {
 
 <template>
   <div>
-    <!-- Encabezado de la página -->
     <PageHeader
       title="Turnos"
       description="Consulta de disponibilidad médica, grilla de horarios y asignación de citas."
@@ -148,83 +334,35 @@ const resetFilters = () => {
       </button>
     </PageHeader>
 
-    <!-- Barra de Navegación del Calendario & Filtros -->
     <div class="hospital-card mb-4">
       <div class="hospital-card-body p-3">
         <div class="row g-3 align-items-center">
-          <!-- Controles de navegación temporal -->
           <div class="col-12 col-lg-5 d-flex align-items-center gap-2">
             <div class="btn-group" role="group" aria-label="Navegación de fecha">
-              <button
-                type="button"
-                class="btn btn-outline-secondary btn-sm"
-                title="Día anterior"
-                @click="prevDate"
-              >
+              <button type="button" class="btn btn-outline-secondary btn-sm" title="Día anterior" @click="prevDate">
                 <i class="bi bi-chevron-left"></i>
               </button>
-              <button
-                type="button"
-                class="btn btn-outline-secondary btn-sm px-3"
-                @click="setToday"
-              >
+              <button type="button" class="btn btn-outline-secondary btn-sm px-3" @click="setToday">
                 Hoy
               </button>
-              <button
-                type="button"
-                class="btn btn-outline-secondary btn-sm"
-                title="Día siguiente"
-                @click="nextDate"
-              >
+              <button type="button" class="btn btn-outline-secondary btn-sm" title="Día siguiente" @click="nextDate">
                 <i class="bi bi-chevron-right"></i>
               </button>
             </div>
-
-            <!-- Selector visual de fecha -->
-            <input
-              v-model="selectedDate"
-              type="date"
-              class="form-control form-control-sm"
-              style="max-width: 160px;"
-            />
-
-            <!-- Fecha formateada en texto -->
+            <input v-model="selectedDate" type="date" class="form-control form-control-sm" style="max-width: 160px;" />
             <span class="text-capitalize small fw-semibold text-secondary d-none d-sm-inline">
               {{ formattedDisplayDate }}
             </span>
           </div>
 
-          <!-- Modos de vista (Día / Semana / Mes) -->
           <div class="col-12 col-sm-6 col-lg-3 text-lg-center">
             <div class="btn-group btn-group-sm" role="group">
-              <button
-                type="button"
-                class="btn"
-                :class="viewMode === 'dia' ? 'btn-success' : 'btn-outline-secondary'"
-                @click="viewMode = 'dia'"
-              >
-                Día
-              </button>
-              <button
-                type="button"
-                class="btn"
-                :class="viewMode === 'semana' ? 'btn-success' : 'btn-outline-secondary'"
-                @click="viewMode = 'semana'"
-              >
-                Semana
-              </button>
-              <button
-                type="button"
-                class="btn"
-                :class="viewMode === 'mes' ? 'btn-success' : 'btn-outline-secondary'"
-                @click="viewMode = 'mes'"
-              >
-                Mes
-              </button>
+              <button type="button" class="btn" :class="viewMode === 'dia' ? 'btn-success' : 'btn-outline-secondary'" @click="viewMode = 'dia'">Día</button>
+              <button type="button" class="btn" :class="viewMode === 'semana' ? 'btn-success' : 'btn-outline-secondary'" @click="viewMode = 'semana'">Semana</button>
+              <button type="button" class="btn" :class="viewMode === 'mes' ? 'btn-success' : 'btn-outline-secondary'" @click="viewMode = 'mes'">Mes</button>
             </div>
           </div>
 
-          <!-- Leyenda visual de estados de horario -->
           <div class="col-12 col-sm-6 col-lg-4 d-flex justify-content-lg-end gap-2 flex-wrap">
             <span class="legend-pill">
               <span class="legend-color-box available"></span>
@@ -243,18 +381,21 @@ const resetFilters = () => {
 
         <hr class="my-3 text-muted opacity-25" />
 
-        <!-- Filtros visuales requeridos -->
         <div class="row g-2 align-items-end">
           <div class="col-12 col-md-3">
             <label class="form-label small mb-1">Especialidad</label>
             <select v-model="filterEspecialidad" class="form-select form-select-sm">
-              <option value="">Seleccioná una especialidad</option>
+              <option value="">Todas</option>
+              <option v-for="esp in especialidades" :key="esp" :value="esp">{{ esp }}</option>
             </select>
           </div>
           <div class="col-12 col-md-3">
             <label class="form-label small mb-1">Médico</label>
             <select v-model="filterMedico" class="form-select form-select-sm">
-              <option value="">Seleccioná un médico</option>
+              <option value="">Todos</option>
+              <option v-for="m in medicos" :key="m.id" :value="String(m.id)">
+                {{ m.apellido }}, {{ m.nombre }}
+              </option>
             </select>
           </div>
           <div class="col-12 col-md-3">
@@ -289,63 +430,206 @@ const resetFilters = () => {
       </div>
     </div>
 
-    <!-- Grilla de horarios organizada por médico con intervalos de 30 minutos -->
-    <div class="hospital-card">
-      <div class="hospital-card-header">
-        <div class="hospital-card-title">
-          <i class="bi bi-grid-3x3 text-success"></i>
-          <span>Grilla de turnos y disponibilidad</span>
+    <div class="row g-4">
+      <div :class="selectedTurno ? 'col-12 col-xl-8' : 'col-12'">
+        <div class="hospital-card">
+          <div class="hospital-card-header">
+            <div class="hospital-card-title">
+              <i class="bi bi-grid-3x3 text-success"></i>
+              <span>Grilla de turnos y disponibilidad</span>
+            </div>
+            <span class="text-muted small">
+              Clic en vacío para asignar · clic en ocupado para gestionar
+            </span>
+          </div>
+          <div class="hospital-card-body p-0">
+            <div class="schedule-grid-container border-0 rounded-0">
+              <table class="schedule-grid-table">
+                <thead>
+                  <tr>
+                    <th class="schedule-time-col">Hora</th>
+                    <th
+                      v-for="col in preparedDoctorColumns"
+                      :key="col.id"
+                      class="schedule-doctor-header"
+                    >
+                      <div class="schedule-doctor-name">
+                        <span>{{ col.name }}</span>
+                      </div>
+                      <div class="schedule-doctor-spec">
+                        <span>{{ col.specialty }}</span>
+                      </div>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-if="preparedDoctorColumns.length === 0">
+                    <td colspan="2" class="text-center text-muted py-4">
+                      No hay médicos para mostrar con los filtros actuales.
+                    </td>
+                  </tr>
+                  <tr v-for="time in gridTimeSlots" :key="time">
+                    <td class="schedule-time-col">{{ time }}</td>
+                    <td
+                      v-for="col in preparedDoctorColumns"
+                      :key="col.id"
+                      class="schedule-slot-cell"
+                      :class="{ 'bg-success-subtle': slotTurno(col.id, time) && String(selectedTurno?.id) === String(slotTurno(col.id, time)?.id) }"
+                      :title="slotTurno(col.id, time)?.paciente || 'Hacé clic para asignar turno'"
+                      @click="
+                        slotTurno(col.id, time)
+                          ? openTurnoDetail(slotTurno(col.id, time)!)
+                          : openAssignModal(time, col.id)
+                      "
+                    >
+                      <span v-if="slotTurno(col.id, time)" class="fw-semibold small d-block">
+                        {{ slotTurno(col.id, time)?.paciente }}
+                      </span>
+                      <span
+                        v-if="slotTurno(col.id, time)"
+                        class="small text-muted"
+                      >
+                        {{ estadoLabel(slotTurno(col.id, time)!) }}
+                      </span>
+                      <span v-else class="schedule-slot-empty-label">Disponible</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
-        <span class="text-muted small">
-          Hacé clic en cualquier franja horaria para abrir el formulario de asignación
-        </span>
+
+        <div class="hospital-card mt-4">
+          <div class="hospital-card-header">
+            <div class="hospital-card-title">
+              <i class="bi bi-hourglass-split text-success"></i>
+              <span>Lista de espera · {{ selectedDate }}</span>
+            </div>
+            <span class="text-muted small">{{ waitlistDelDia.length }} en cola</span>
+          </div>
+          <div class="hospital-card-body p-0">
+            <div class="hospital-table-wrapper">
+              <table class="hospital-table mb-0">
+                <thead>
+                  <tr>
+                    <th>Paciente</th>
+                    <th>DNI</th>
+                    <th>Médico</th>
+                    <th>Ingreso a la cola</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="item in waitlistDelDia" :key="item.id">
+                    <td class="fw-semibold">{{ item.pacienteNombre }}</td>
+                    <td>{{ item.pacienteDni || '—' }}</td>
+                    <td>{{ item.medicoNombre }}</td>
+                    <td class="text-muted small">
+                      {{ new Date(item.createdAt).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) }}
+                    </td>
+                  </tr>
+                  <tr v-if="waitlistDelDia.length === 0">
+                    <td colspan="4" class="p-0">
+                      <EmptyState
+                        icon="bi-hourglass"
+                        title="Sin pacientes en espera"
+                        description="Si un horario ya está tomado, el alta del turno deja al paciente en esta lista."
+                        compact
+                      />
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="hospital-card-body p-0">
-        <div class="schedule-grid-container border-0 rounded-0">
-          <table class="schedule-grid-table">
-            <thead>
-              <tr>
-                <th class="schedule-time-col">Hora</th>
-                <!-- Columnas preparadas para los médicos: se conservan vacías según especificación -->
-                <th
-                  v-for="col in preparedDoctorColumns"
-                  :key="col.id"
-                  class="schedule-doctor-header"
-                >
-                  <div class="schedule-doctor-name">
-                    <span class="text-muted fw-normal fst-italic">Médico {{ col.id }} (Sin asignar)</span>
-                  </div>
-                  <div class="schedule-doctor-spec">
-                    <span class="text-muted fst-italic">Especialidad no especificada</span>
-                  </div>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              <!-- Filas de intervalos de 30 minutos sin inventar agendas ni turnos asignados -->
-              <tr v-for="time in filteredTimeSlots" :key="time">
-                <td class="schedule-time-col">
-                  {{ time }}
-                </td>
-                <td
-                  v-for="col in preparedDoctorColumns"
-                  :key="col.id"
-                  class="schedule-slot-cell"
-                  title="Hacé clic para asignar turno"
-                  @click="openAssignModal(time)"
-                >
-                  <span class="schedule-slot-empty-label">
-                    Disponible
-                  </span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+
+      <div v-if="selectedTurno" class="col-12 col-xl-4">
+        <div class="hospital-card sticky-top" style="top: 85px;">
+          <div class="hospital-card-header">
+            <div class="hospital-card-title">
+              <i class="bi bi-info-circle text-success"></i>
+              <span>Detalle del turno</span>
+            </div>
+            <button type="button" class="btn-close" aria-label="Cerrar detalle" @click="closeTurnoDetail"></button>
+          </div>
+          <div class="hospital-card-body">
+            <div class="mb-3">
+              <div class="text-muted small">Paciente</div>
+              <div class="fs-5 fw-bold text-dark">{{ selectedTurno.paciente }}</div>
+              <div v-if="selectedTurno.pacienteDni" class="text-muted small">
+                DNI: {{ selectedTurno.pacienteDni }}
+              </div>
+            </div>
+            <div class="row g-2 mb-3">
+              <div class="col-6">
+                <div class="text-muted small">Fecha</div>
+                <div class="fw-semibold">{{ selectedTurno.fecha }}</div>
+              </div>
+              <div class="col-6">
+                <div class="text-muted small">Hora</div>
+                <div class="fw-semibold">{{ selectedTurno.hora }}</div>
+              </div>
+            </div>
+            <div class="mb-3">
+              <div class="text-muted small">Médico</div>
+              <div class="fw-semibold">{{ selectedTurno.medico }}</div>
+              <div class="text-muted small">{{ selectedTurno.especialidad }}</div>
+            </div>
+            <div class="mb-3">
+              <div class="text-muted small">Estado</div>
+              <div>
+                <span :class="estadoBadgeClass(selectedTurno)">{{ estadoLabel(selectedTurno) }}</span>
+              </div>
+            </div>
+            <div v-if="selectedTurno.observaciones" class="mb-3">
+              <div class="text-muted small">Observaciones</div>
+              <p class="small text-secondary mb-0 bg-light p-2 rounded">
+                {{ selectedTurno.observaciones }}
+              </p>
+            </div>
+
+            <div class="d-grid gap-2 pt-2 border-top">
+              <button
+                v-if="selectedTurno.statusApi === 'programado'"
+                type="button"
+                class="btn btn-sm btn-hospital-primary"
+                :disabled="actionBusy"
+                @click="pasarASala"
+              >
+                <i class="bi bi-door-open me-1"></i>
+                Pasar a sala de espera
+              </button>
+              <button
+                v-if="selectedTurno.statusApi === 'programado' || selectedTurno.statusApi === 'en_sala_de_espera' || selectedTurno.statusApi === 'atendido'"
+                type="button"
+                class="btn btn-sm btn-outline-success"
+                :disabled="actionBusy"
+                @click="facturarConsulta"
+              >
+                <i class="bi bi-receipt me-1"></i>
+                Facturar consulta
+              </button>
+              <button
+                v-if="selectedTurno.statusApi === 'programado' || selectedTurno.statusApi === 'en_sala_de_espera'"
+                type="button"
+                class="btn btn-sm btn-outline-danger"
+                :disabled="actionBusy"
+                @click="cancelarTurno"
+              >
+                <i class="bi bi-x-circle me-1"></i>
+                Cancelar turno
+              </button>
+              <button type="button" class="btn btn-sm btn-outline-secondary" @click="closeTurnoDetail">
+                Cerrar panel
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- Modal Reutilizable: Asignación de Turno -->
     <BaseModal
       :is-open="isNewTurnoModalOpen"
       title="Asignación de Turno"
@@ -354,78 +638,80 @@ const resetFilters = () => {
       @close="closeAssignModal"
     >
       <form @submit.prevent="handleAssignSubmit">
-        <!-- Datos del Turno: Fecha, Hora, Especialidad, Médico -->
         <div class="row g-3 mb-4">
           <div class="col-12 col-md-6">
             <label class="form-label">Fecha del turno</label>
-            <input
-              v-model="turnoForm.fecha"
-              type="date"
-              class="form-control"
-            />
+            <input v-model="turnoForm.fecha" type="date" class="form-control" />
           </div>
           <div class="col-12 col-md-6">
             <label class="form-label">Hora del turno</label>
-            <input
-              v-model="turnoForm.hora"
-              type="time"
-              step="1800"
-              class="form-control"
-            />
+            <select v-model="turnoForm.hora" class="form-select">
+              <option value="">Seleccioná hora</option>
+              <option
+                v-for="slot in (turnoForm.entreturno ? entreturnoSlots : timeSlots)"
+                :key="slot"
+                :value="slot"
+              >
+                {{ slot }}
+              </option>
+            </select>
           </div>
           <div class="col-12 col-md-6">
             <label class="form-label">Especialidad</label>
             <select v-model="turnoForm.especialidad" class="form-select">
               <option value="">Seleccioná una especialidad</option>
+              <option v-for="esp in especialidades" :key="esp" :value="esp">{{ esp }}</option>
             </select>
           </div>
           <div class="col-12 col-md-6">
             <label class="form-label">Médico</label>
             <select v-model="turnoForm.medico" class="form-select">
               <option value="">Seleccioná un médico</option>
+              <option v-for="medico in medicos" :key="medico.id" :value="String(medico.id)">
+                {{ medico.apellido }}, {{ medico.nombre }} — {{ medico.especialidad }}
+              </option>
             </select>
+          </div>
+          <div class="col-12">
+            <div class="form-check">
+              <input
+                id="chk-entreturno"
+                v-model="turnoForm.entreturno"
+                class="form-check-input"
+                type="checkbox"
+              />
+              <label class="form-check-label" for="chk-entreturno">
+                Entreturno (:15 / :45 — acorta el turno en curso)
+              </label>
+            </div>
           </div>
         </div>
 
-        <!-- Selección entre Paciente Existente y Paciente Nuevo -->
         <div class="mb-3">
           <label class="form-label d-block">Tipo de paciente</label>
           <div class="btn-group w-100" role="group">
-            <input
-              id="btnRadioExistente"
-              v-model="pacienteType"
-              type="radio"
-              class="btn-check"
-              value="existente"
-            />
-            <label
-              class="btn btn-outline-success"
-              for="btnRadioExistente"
-            >
+            <input id="btnRadioExistente" v-model="pacienteType" type="radio" class="btn-check" value="existente" />
+            <label class="btn btn-outline-success" for="btnRadioExistente">
               <i class="bi bi-person-check me-1"></i>
               Paciente existente
             </label>
-
-            <input
-              id="btnRadioNuevo"
-              v-model="pacienteType"
-              type="radio"
-              class="btn-check"
-              value="nuevo"
-            />
-            <label
-              class="btn btn-outline-success"
-              for="btnRadioNuevo"
-            >
+            <input id="btnRadioNuevo" v-model="pacienteType" type="radio" class="btn-check" value="nuevo" />
+            <label class="btn btn-outline-success" for="btnRadioNuevo">
               <i class="bi bi-person-plus me-1"></i>
               Paciente nuevo
             </label>
           </div>
         </div>
 
-        <!-- Opción: Paciente Existente -->
         <div v-if="pacienteType === 'existente'" class="p-3 bg-light rounded-3 mb-3 border">
-          <label class="form-label">Búsqueda de paciente existente</label>
+          <label class="form-label">Paciente existente</label>
+          <select v-model="turnoForm.pacienteId" class="form-select mb-2">
+            <option value="">Seleccioná un paciente</option>
+            <option v-for="paciente in pacientes" :key="paciente.id" :value="String(paciente.id)">
+              {{ paciente.apellido }}, {{ paciente.nombre }} — DNI {{ paciente.dni }}
+            </option>
+          </select>
+          <label class="form-label">O buscá por nombre / DNI</label>
           <div class="input-group">
             <span class="input-group-text bg-white">
               <i class="bi bi-search text-muted"></i>
@@ -437,12 +723,8 @@ const resetFilters = () => {
               placeholder="Buscar por DNI, nombre o apellido"
             />
           </div>
-          <div class="form-text mt-2 text-muted small">
-            Ingresá el número de documento para localizar la ficha del paciente en el sistema.
-          </div>
         </div>
 
-        <!-- Opción: Paciente Nuevo (Campos para registrar un paciente nuevo sin salir) -->
         <div v-else class="p-3 bg-light rounded-3 mb-3 border">
           <div class="d-flex align-items-center gap-2 mb-3 text-success fw-semibold">
             <i class="bi bi-person-vcard"></i>
@@ -451,77 +733,44 @@ const resetFilters = () => {
           <div class="row g-3">
             <div class="col-12 col-md-6">
               <label class="form-label">Nombre</label>
-              <input
-                v-model="turnoForm.nuevoNombre"
-                type="text"
-                class="form-control"
-                placeholder="Ingresá el nombre"
-              />
+              <input v-model="turnoForm.nuevoNombre" type="text" class="form-control" />
             </div>
             <div class="col-12 col-md-6">
               <label class="form-label">Apellido</label>
-              <input
-                v-model="turnoForm.nuevoApellido"
-                type="text"
-                class="form-control"
-                placeholder="Ingresá el apellido"
-              />
+              <input v-model="turnoForm.nuevoApellido" type="text" class="form-control" />
             </div>
             <div class="col-12 col-md-4">
               <label class="form-label">DNI</label>
-              <input
-                v-model="turnoForm.nuevoDni"
-                type="text"
-                class="form-control"
-                placeholder="Ingresá el DNI"
-              />
+              <input v-model="turnoForm.nuevoDni" type="text" class="form-control" />
             </div>
             <div class="col-12 col-md-4">
               <label class="form-label">Teléfono</label>
-              <input
-                v-model="turnoForm.nuevoTelefono"
-                type="tel"
-                class="form-control"
-                placeholder="Ingresá el teléfono"
-              />
+              <input v-model="turnoForm.nuevoTelefono" type="tel" class="form-control" />
             </div>
             <div class="col-12 col-md-4">
               <label class="form-label">Obra social</label>
-              <input
-                v-model="turnoForm.nuevoObraSocial"
-                type="text"
-                class="form-control"
-                placeholder="Seleccioná o ingresá obra social"
-              />
+              <input v-model="turnoForm.nuevoObraSocial" type="text" class="form-control" />
             </div>
             <div class="col-12">
               <label class="form-label">Email</label>
-              <input
-                v-model="turnoForm.nuevoEmail"
-                type="email"
-                class="form-control"
-                placeholder="ejemplo@correo.com"
-              />
+              <input v-model="turnoForm.nuevoEmail" type="email" class="form-control" />
             </div>
           </div>
         </div>
       </form>
 
       <template #footer>
-        <button
-          type="button"
-          class="btn btn-outline-secondary"
-          @click="closeAssignModal"
-        >
+        <button type="button" class="btn btn-outline-secondary" @click="closeAssignModal">
           Cancelar
         </button>
         <button
           type="button"
           class="btn-hospital-primary"
+          :disabled="isSubmitting"
           @click="handleAssignSubmit"
         >
           <i class="bi bi-check2"></i>
-          <span>Asignar turno</span>
+          <span>{{ isSubmitting ? 'Guardando…' : 'Asignar turno' }}</span>
         </button>
       </template>
     </BaseModal>

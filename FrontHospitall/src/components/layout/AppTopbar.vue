@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useAuthStore } from '@/stores/auth'
 import { useUiStore } from '@/stores/ui'
 
 /**
@@ -9,6 +10,14 @@ import { useUiStore } from '@/stores/ui'
  * Incluye el botón de menú móvil, barra de búsqueda general y notificaciones visuales.
  */
 const uiStore = useUiStore()
+const authStore = useAuthStore()
+
+const displayName = computed(
+  () => authStore.user?.name || uiStore.activeProfile.name,
+)
+const displayRole = computed(
+  () => authStore.user?.email || uiStore.activeProfile.role,
+)
 
 const isAdmin = computed(() => uiStore.currentRole === 'admin')
 const isMedico = computed(() => uiStore.currentRole === 'medico')
@@ -98,10 +107,10 @@ const handleSearch = () => {
         </div>
         <div class="d-none d-md-block">
           <div class="hospital-topbar-name">
-            {{ uiStore.activeProfile.name }}
+            {{ displayName }}
           </div>
           <div class="hospital-topbar-sub">
-            {{ uiStore.activeProfile.role }}
+            {{ displayRole }}
           </div>
         </div>
       </div>

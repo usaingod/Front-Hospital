@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import StatCard from '@/components/common/StatCard.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import BaseModal from '@/components/common/BaseModal.vue'
 import type { Cama, Ala, CreateCamaDTO, UpdateCamaDTO, CreateAlaDTO } from '@/types/internacion'
+import { ApiError } from '@/services/api'
+import { alasService, camasService } from '@/services/camasService'
 
 /**
  * Vista: Gestión de Camas e Infraestructura Hospitalaria (AdminCamasView.vue)
@@ -20,29 +22,40 @@ import type { Cama, Ala, CreateCamaDTO, UpdateCamaDTO, CreateAlaDTO } from '@/ty
  * - Sin datos ficticios, mocks ni cálculos locales de numeración.
  */
 
-// Colección reactiva de camas de la infraestructura (inicia vacía sin datos ficticios)
 const camas = ref<Cama[]>([])
-
-// Colección de alas existentes registradas en el hospital (inicia vacía)
 const alas = ref<Ala[]>([])
 
-// Indicadores estadísticos (sin números inventados)
-const statCards = [
+const loadData = async () => {
+  const [beds, wings] = await Promise.all([
+    camasService.getAll(),
+    alasService.getAll(),
+  ])
+  camas.value = beds
+  alas.value = wings
+}
+
+onMounted(() => {
+  loadData().catch((err) => {
+    alert(err instanceof ApiError ? err.message : 'No se pudieron cargar las camas')
+  })
+})
+
+const statCards = computed(() => [
   {
     label: 'Total de Camas',
     icon: 'bi-hospital',
     colorClass: 'blue' as const,
     hint: 'Registradas en la infraestructura',
-    value: '—',
+    value: String(camas.value.length || '—'),
   },
   {
     label: 'Alas Habilitadas',
     icon: 'bi-building',
     colorClass: 'blue' as const,
     hint: 'Sectores del hospital',
-    value: '—',
+    value: String(alas.value.length || '—'),
   },
-]
+])
 
 // Filtros y búsqueda
 const searchQuery = ref('')
@@ -117,17 +130,25 @@ const onSelectAlaChange = () => {
   }
 }
 
-const handleCamaSubmit = () => {
+const handleCamaSubmit = async () => {
   if (!formCama.value.ala) {
     formCamaErrors.value.ala = 'Debe seleccionar un ala para la cama.'
     return
   }
-
-  // Notificación informativa: el frontend no calcula números localmente
-  alert(
-    `Solicitud de creación validada para ${formCama.value.ala}. El backend asignará automáticamente el número correlativo correspondiente (ej. 101, 102...) al conectar con el servidor.`
-  )
-  closeCamaModal()
+  isSubmittingCama.value = true
+  try {
+    const alaObj = alas.value.find((a) => a.nombre === formCama.value.ala)
+    await camasService.create({
+      ala: formCama.value.ala,
+      alaId: alaObj?.id || formCama.value.alaId,
+    })
+    await loadData()
+    closeCamaModal()
+  } catch (err) {
+    alert(err instanceof ApiError ? err.message : 'No se pudo crear la cama')
+  } finally {
+    isSubmittingCama.value = false
+  }
 }
 
 // ============================================================
@@ -155,35 +176,28 @@ const closeAlaModal = () => {
   formAlaErrors.value = {}
 }
 
-const handleAlaSubmit = () => {
+const handleAlaSubmit = async () => {
   if (!formAla.value.nombre.trim()) {
     formAlaErrors.value.nombre = 'El nombre o identificación del ala es obligatorio.'
     return
   }
-
-  const nombreIngresado = formAla.value.nombre.trim()
-
-  // Incorporar al catálogo local de alas para que aparezca inmediatamente en el selector de Nueva Cama
-  const yaExiste = alas.value.some(
-    (a) => a.nombre.toLowerCase() === nombreIngresado.toLowerCase()
-  )
-  if (!yaExiste) {
-    alas.value.push({
-      id: `ala-${Date.now()}`,
-      nombre: nombreIngresado,
+  isSubmittingAla.value = true
+  try {
+    const created = await alasService.create({
+      nombre: formAla.value.nombre.trim(),
       descripcion: formAla.value.descripcion?.trim() || undefined,
     })
+    await loadData()
+    if (created && isCamaModalOpen.value) {
+      formCama.value.ala = created.nombre
+      formCama.value.alaId = created.id
+    }
+    closeAlaModal()
+  } catch (err) {
+    alert(err instanceof ApiError ? err.message : 'No se pudo crear el ala')
+  } finally {
+    isSubmittingAla.value = false
   }
-
-  // Si el modal de nueva cama estaba en proceso, preseleccionar la nueva ala creada
-  if (isCamaModalOpen.value) {
-    formCama.value.ala = nombreIngresado
-  }
-
-  alert(
-    `Ala "${nombreIngresado}" registrada. Estará disponible en el selector de camas y se sincronizará con el backend al conectar la API.`
-  )
-  closeAlaModal()
 }
 
 // ============================================================

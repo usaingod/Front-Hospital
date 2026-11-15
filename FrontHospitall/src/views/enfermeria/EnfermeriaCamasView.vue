@@ -1,61 +1,146 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import StatCard from '@/components/common/StatCard.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import type { Cama, CamaFilter, EstadoCama } from '@/types/internacion'
-import type { CreateSignosVitalesDTO } from '@/types/signosVitales'
+import type { CreateSignosVitalesDTO, SignosVitales } from '@/types/signosVitales'
+import { ApiError, api } from '@/services/api'
+import { camasService, internacionService } from '@/services/camasService'
 
-/**
- * Vista de Camas — Perfil Enfermería
- * Criterios 1, 2, 3, 5, 7, 8, 9:
- * - Tarjetas de resumen con cinco indicadores (sin datos ficticios).
- * - Tabla de camas con buscador, filtro por sala y filtro por estado.
- * - Tres estados de cama: disponible (verde), ocupada (rojo), en limpieza (ámbar).
- * - Formulario de registro de signos vitales con los cuatro signos requeridos.
- * - Pestaña de controles recientes.
- * - Estados vacíos profesionales.
- * - Preparado para integración futura con la API; sin peticiones HTTP en esta etapa.
- */
+import { signosVitalesService } from '@/services/signosVitalesService'
 
-// Pestaña activa: 'listado' | 'controles'
 const activeTab = ref<'listado' | 'controles'>('listado')
-
-// Tarjetas de resumen sin cantidades ficticias
-const statCards = [
-  { label: 'Total de camas', icon: 'bi-hospital', colorClass: 'rose' as const, value: '—' },
-  { label: 'Ocupadas', icon: 'bi-person-fill', colorClass: 'rose' as const, value: '—' },
-  { label: 'Disponibles', icon: 'bi-check-circle', colorClass: 'green' as const, value: '—' },
-  { label: 'En limpieza', icon: 'bi-stars', colorClass: 'amber' as const, value: '—' },
-  { label: 'Controles pendientes', icon: 'bi-clipboard2-pulse', colorClass: 'blue' as const, value: '—' },
-]
-
-// Colección reactiva de camas (vacía hasta conectar el backend)
 const camas = ref<Cama[]>([])
+const controlesRecientes = ref<SignosVitales[]>([])
+const pacientesInternados = ref<{ id: string; nombre: string; apellido: string }[]>([])
+const patientNames = ref<Map<string, string>>(new Map())
+const isLoading = ref(false)
 
-// Filtros
 const filtros = ref<CamaFilter>({
   query: '',
   sala: '',
   estado: '',
 })
 
-// Opciones de sala (se poblarán desde el backend)
+const form = ref<CreateSignosVitalesDTO>({
+  pacienteId: '',
+  fechaHora: '',
+  temperatura: 0,
+  frecuenciaCardiaca: 0,
+  presionSistolica: 0,
+  presionDiastolica: 0,
+  observaciones: '',
+})
+const isSubmitting = ref(false)
+const formErrors = ref<Partial<Record<keyof CreateSignosVitalesDTO, string>>>({})
+const statusBusyId = ref<string | null>(null)
+
+const formatVitalSummary = (cama: Cama) => {
+  const v = cama.ultimoSignos
+  if (!v) return null
+  return `Temp: ${v.temperatura}°C · FC: ${v.frecuenciaCardiaca} · ${v.presionSistolica}/${v.presionDiastolica}`
+}
+
+const loadData = async () => {
+  isLoading.value = true
+  try {
+    const [beds, internados] = await Promise.all([
+      camasService.getAll(),
+      internacionService.pacientesInternados(),
+    ])
+
+    pacientesInternados.value = internados.patients.map((p) => ({
+      id: String(p.id),
+      nombre: p.nombre,
+      apellido: p.apellido,
+    }))
+    patientNames.value = new Map(
+      internados.patients.map((p) => [
+        String(p.id),
+        `${p.apellido}, ${p.nombre}`,
+      ]),
+    )
+
+    const vitalsByAdmission = new Map<string, SignosVitales[]>()
+    await Promise.all(
+      internados.stays.map(async (stay) => {
+        const rows = await signosVitalesService.getByInternacionId(stay.id)
+        vitalsByAdmission.set(stay.id, rows)
+      }),
+    )
+
+    camas.value = beds.map((bed) => {
+      const vitals = bed.internacionId
+        ? vitalsByAdmission.get(bed.internacionId) || []
+        : []
+      const latest = vitals[0]
+      return {
+        ...bed,
+        ultimoSignos: latest
+          ? {
+              fechaHora: latest.fechaHora,
+              temperatura: latest.temperatura,
+              frecuenciaCardiaca: latest.frecuenciaCardiaca,
+              presionSistolica: latest.presionSistolica,
+              presionDiastolica: latest.presionDiastolica,
+            }
+          : undefined,
+      }
+    })
+
+    controlesRecientes.value = Array.from(vitalsByAdmission.values())
+      .flat()
+      .sort(
+        (a, b) =>
+          new Date(b.fechaHora).getTime() - new Date(a.fechaHora).getTime(),
+      )
+      .slice(0, 30)
+  } finally {
+    isLoading.value = false
+  }
+}
+
+onMounted(() => {
+  loadData().catch((err) => {
+    alert(err instanceof ApiError ? err.message : 'No se pudieron cargar las camas')
+  })
+})
+
+const statCards = computed(() => {
+  const total = camas.value.length
+  const ocupadas = camas.value.filter((c) => c.estado === 'ocupada').length
+  const disponibles = camas.value.filter((c) => c.estado === 'disponible').length
+  const limpieza = camas.value.filter((c) => c.estado === 'en_limpieza').length
+  const sinControl = camas.value.filter(
+    (c) => c.estado === 'ocupada' && !c.ultimoSignos,
+  ).length
+  return [
+    { label: 'Total de camas', icon: 'bi-hospital', colorClass: 'rose' as const, value: String(total || '—') },
+    { label: 'Ocupadas', icon: 'bi-person-fill', colorClass: 'rose' as const, value: String(ocupadas || '—') },
+    { label: 'Disponibles', icon: 'bi-check-circle', colorClass: 'green' as const, value: String(disponibles || '—') },
+    { label: 'En limpieza', icon: 'bi-stars', colorClass: 'amber' as const, value: String(limpieza || '—') },
+    { label: 'Sin control reciente', icon: 'bi-clipboard2-pulse', colorClass: 'blue' as const, value: String(sinControl || '—') },
+  ]
+})
+
 const salasDisponibles = computed<string[]>(() => {
-  const salasSet = new Set(camas.value.map((c) => c.sala))
+  const salasSet = new Set(
+    camas.value.map((c) => c.sala).filter((s): s is string => !!s),
+  )
   return Array.from(salasSet).sort()
 })
 
-// Camas filtradas
 const camasFiltradas = computed(() => {
   return camas.value.filter((cama) => {
+    const q = filtros.value.query?.toLowerCase() || ''
     const matchesQuery =
-      !filtros.value.query ||
-      cama.numero.toLowerCase().includes(filtros.value.query.toLowerCase()) ||
-      cama.sala.toLowerCase().includes(filtros.value.query.toLowerCase())
+      !q ||
+      cama.numero.toLowerCase().includes(q) ||
+      (cama.sala || '').toLowerCase().includes(q) ||
+      (cama.pacienteNombre || '').toLowerCase().includes(q)
 
     const matchesSala = !filtros.value.sala || cama.sala === filtros.value.sala
-
     const matchesEstado =
       !filtros.value.estado || cama.estado === filtros.value.estado
 
@@ -71,57 +156,31 @@ const hayFiltrosActivos = computed(
   () => !!filtros.value.query || !!filtros.value.sala || !!filtros.value.estado,
 )
 
-// Badge y etiqueta por estado de cama
 const getEstadoClass = (estado: EstadoCama): string => {
   if (estado === 'disponible') return 'badge-cama-disponible'
   if (estado === 'ocupada') return 'badge-cama-ocupada'
+  if (estado === 'bloqueada') return 'badge bg-secondary'
   return 'badge-cama-limpieza'
 }
 
 const getEstadoLabel = (estado: EstadoCama): string => {
   if (estado === 'disponible') return 'Disponible'
   if (estado === 'ocupada') return 'Ocupada'
+  if (estado === 'bloqueada') return 'Bloqueada'
   return 'En limpieza'
 }
 
 const getEstadoIcon = (estado: EstadoCama): string => {
   if (estado === 'disponible') return 'bi-check-circle-fill'
   if (estado === 'ocupada') return 'bi-person-fill'
+  if (estado === 'bloqueada') return 'bi-lock-fill'
   return 'bi-stars'
 }
 
-// -------------------------
-// Formulario de Signos Vitales
-// -------------------------
-
-// Pacientes internados disponibles (vacío hasta conectar el backend)
-const pacientesInternados = ref<{ id: string; nombre: string; apellido: string }[]>([])
-
-// Formulario reactivo
-const form = ref<CreateSignosVitalesDTO>({
-  pacienteId: '',
-  fechaHora: '',
-  temperatura: 0,
-  frecuenciaCardiaca: 0,
-  presionSistolica: 0,
-  presionDiastolica: 0,
-  observaciones: '',
-})
-
-// Control de envío
-const isSubmitting = ref(false)
-const formErrors = ref<Partial<Record<keyof CreateSignosVitalesDTO, string>>>({})
-
-// Validación del formulario
 const validarFormulario = (): boolean => {
   const errores: Partial<Record<keyof CreateSignosVitalesDTO, string>> = {}
-
-  if (!form.value.pacienteId) {
-    errores.pacienteId = 'Debe seleccionar un paciente.'
-  }
-  if (!form.value.fechaHora) {
-    errores.fechaHora = 'La fecha y hora son obligatorias.'
-  }
+  if (!form.value.pacienteId) errores.pacienteId = 'Debe seleccionar un paciente.'
+  if (!form.value.fechaHora) errores.fechaHora = 'La fecha y hora son obligatorias.'
   if (!form.value.temperatura || form.value.temperatura <= 0) {
     errores.temperatura = 'Ingrese un valor de temperatura válido.'
   }
@@ -134,7 +193,6 @@ const validarFormulario = (): boolean => {
   if (!form.value.presionDiastolica || form.value.presionDiastolica <= 0) {
     errores.presionDiastolica = 'Ingrese un valor de presión diastólica válido.'
   }
-
   formErrors.value = errores
   return Object.keys(errores).length === 0
 }
@@ -152,26 +210,73 @@ const cancelarFormulario = () => {
   formErrors.value = {}
 }
 
-const registrarControl = () => {
+const registrarControl = async () => {
   if (!validarFormulario()) return
   if (isSubmitting.value) return
+  isSubmitting.value = true
+  try {
+    await signosVitalesService.create({ ...form.value })
+    cancelarFormulario()
+    await loadData()
+    activeTab.value = 'controles'
+  } catch (err) {
+    alert(err instanceof ApiError ? err.message : 'No se pudieron registrar los signos')
+  } finally {
+    isSubmitting.value = false
+  }
+}
 
-  // En esta etapa NO se realiza la petición HTTP.
-  // Cuando se conecte el backend, aquí se llamará a signosVitalesService.create(form.value).
-  // isSubmitting.value = true
-  // await signosVitalesService.create(form.value)
+const marcarDisponible = async (cama: Cama) => {
+  if (cama.estado !== 'en_limpieza') return
+  statusBusyId.value = cama.id
+  try {
+    await api.patch(`/beds/${cama.id}/status`, { status: 'disponible' })
+    await loadData()
+  } catch (err) {
+    alert(err instanceof ApiError ? err.message : 'No se pudo actualizar la cama')
+  } finally {
+    statusBusyId.value = null
+  }
+}
+
+const darDeAltaDesdeCama = async (cama: Cama) => {
+  if (!cama.internacionId || cama.estado !== 'ocupada') return
+  if (
+    !confirm(
+      `¿Confirmás el alta de ${cama.pacienteNombre || 'este paciente'} (cama ${cama.numero})? La cama pasará a limpieza.`,
+    )
+  ) {
+    return
+  }
+  statusBusyId.value = cama.id
+  try {
+    await internacionService.discharge(cama.internacionId)
+    await loadData()
+  } catch (err) {
+    alert(err instanceof ApiError ? err.message : 'No se pudo dar el alta')
+  } finally {
+    statusBusyId.value = null
+  }
+}
+
+const prefillPatient = (cama: Cama) => {
+  if (!cama.pacienteId) return
+  form.value.pacienteId = cama.pacienteId
+  if (!form.value.fechaHora) {
+    const now = new Date()
+    const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
+    form.value.fechaHora = local.toISOString().slice(0, 16)
+  }
 }
 </script>
 
 <template>
   <div>
-    <!-- Encabezado de la página -->
     <PageHeader
       title="Gestión de Camas"
       description="Visualización y seguimiento de camas, pacientes internados y registro de signos vitales."
     />
 
-    <!-- Tarjetas de resumen -->
     <div class="row g-3 mb-4">
       <div
         v-for="card in statCards"
@@ -187,12 +292,9 @@ const registrarControl = () => {
       </div>
     </div>
 
-    <!-- Contenedor de dos columnas: tabla + formulario -->
     <div class="row g-4">
-      <!-- Columna izquierda: Pestañas y listado -->
       <div class="col-12 col-xl-7">
         <div class="hospital-card mb-0">
-          <!-- Pestañas de navegación interna -->
           <div class="hospital-card-header pb-0 border-bottom-0">
             <ul class="enfermeria-nav-tabs mb-0 w-100" role="tablist">
               <li>
@@ -224,11 +326,8 @@ const registrarControl = () => {
             </ul>
           </div>
 
-          <!-- Pestaña: Listado de camas -->
           <div v-if="activeTab === 'listado'" class="hospital-card-body">
-            <!-- Filtros -->
             <div class="row g-2 mb-3">
-              <!-- Buscador -->
               <div class="col-12 col-md-5">
                 <div class="input-group input-group-sm">
                   <span class="input-group-text bg-white border-end-0">
@@ -243,7 +342,6 @@ const registrarControl = () => {
                   />
                 </div>
               </div>
-              <!-- Filtro por sala -->
               <div class="col-6 col-md-3">
                 <select
                   v-model="filtros.sala"
@@ -260,7 +358,6 @@ const registrarControl = () => {
                   </option>
                 </select>
               </div>
-              <!-- Filtro por estado -->
               <div class="col-6 col-md-3">
                 <select
                   v-model="filtros.estado"
@@ -271,9 +368,9 @@ const registrarControl = () => {
                   <option value="disponible">Disponible</option>
                   <option value="ocupada">Ocupada</option>
                   <option value="en_limpieza">En limpieza</option>
+                  <option value="bloqueada">Bloqueada</option>
                 </select>
               </div>
-              <!-- Limpiar filtros -->
               <div class="col-12 col-md-1 d-flex align-items-center">
                 <button
                   v-if="hayFiltrosActivos"
@@ -287,7 +384,6 @@ const registrarControl = () => {
               </div>
             </div>
 
-            <!-- Tabla de camas -->
             <div class="hospital-table-wrapper">
               <table class="hospital-table mb-0">
                 <thead>
@@ -297,14 +393,14 @@ const registrarControl = () => {
                     <th scope="col">Estado</th>
                     <th scope="col">Paciente</th>
                     <th scope="col">Últimos signos vitales</th>
-                    <th scope="col" class="text-center" style="width: 70px;">Acciones</th>
+                    <th scope="col" class="text-center" style="width: 90px;">Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
                   <template v-if="camasFiltradas.length > 0">
                     <tr v-for="cama in camasFiltradas" :key="cama.id">
                       <td class="fw-semibold">{{ cama.numero }}</td>
-                      <td class="text-muted">{{ cama.sala }}</td>
+                      <td class="text-muted">{{ cama.sala || '—' }}</td>
                       <td>
                         <span :class="getEstadoClass(cama.estado)">
                           <i :class="['bi', getEstadoIcon(cama.estado)]" style="font-size: 0.65rem;"></i>
@@ -312,36 +408,62 @@ const registrarControl = () => {
                         </span>
                       </td>
                       <td class="text-muted">
-                        <span v-if="cama.estado === 'ocupada'">—</span>
+                        <span v-if="cama.estado === 'ocupada' && cama.pacienteNombre">
+                          {{ cama.pacienteNombre }}
+                        </span>
                         <span v-else class="text-muted fst-italic small">Sin paciente</span>
                       </td>
                       <td class="small text-muted">
-                        <span v-if="cama.estado === 'ocupada'">
-                          <!-- Temp: —°C · FC: —lpm · Sis: —mmHg · Dia: —mmHg -->
-                          <span class="text-muted fst-italic">Sin registros</span>
-                        </span>
+                        <span v-if="formatVitalSummary(cama)">{{ formatVitalSummary(cama) }}</span>
+                        <span v-else-if="cama.estado === 'ocupada'" class="fst-italic">Sin registros</span>
                         <span v-else>—</span>
                       </td>
                       <td class="text-center">
+                        <div
+                          v-if="cama.estado === 'ocupada'"
+                          class="d-inline-flex gap-1"
+                        >
+                          <button
+                            type="button"
+                            class="btn-action-icon"
+                            title="Registrar signos de este paciente"
+                            aria-label="Registrar signos"
+                            @click="prefillPatient(cama)"
+                          >
+                            <i class="bi bi-clipboard2-pulse"></i>
+                          </button>
+                          <button
+                            type="button"
+                            class="btn-action-icon"
+                            title="Dar de alta"
+                            aria-label="Dar de alta"
+                            :disabled="statusBusyId === cama.id"
+                            @click="darDeAltaDesdeCama(cama)"
+                          >
+                            <i class="bi bi-box-arrow-right"></i>
+                          </button>
+                        </div>
                         <button
+                          v-else-if="cama.estado === 'en_limpieza'"
                           type="button"
                           class="btn-action-icon"
-                          title="Ver detalle de la cama"
-                          aria-label="Ver cama"
+                          title="Marcar cama como disponible"
+                          aria-label="Marcar disponible"
+                          :disabled="statusBusyId === cama.id"
+                          @click="marcarDisponible(cama)"
                         >
-                          <i class="bi bi-eye"></i>
+                          <i class="bi bi-check2-circle"></i>
                         </button>
+                        <span v-else class="text-muted">—</span>
                       </td>
                     </tr>
                   </template>
-
-                  <!-- Estado vacío -->
                   <tr v-else>
                     <td colspan="6" class="p-0">
                       <EmptyState
                         icon="bi-hospital"
-                        title="No hay camas para mostrar"
-                        description="Las camas del servicio se mostrarán aquí una vez conectado con el servidor."
+                        :title="isLoading ? 'Cargando camas…' : 'No hay camas para mostrar'"
+                        description="Probá limpiar los filtros o verificá la conexión con el servidor."
                         compact
                       />
                     </td>
@@ -351,7 +473,6 @@ const registrarControl = () => {
             </div>
           </div>
 
-          <!-- Pestaña: Controles recientes -->
           <div v-else-if="activeTab === 'controles'" class="hospital-card-body">
             <div class="hospital-table-wrapper">
               <table class="hospital-table mb-0">
@@ -366,12 +487,26 @@ const registrarControl = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  <tr>
+                  <template v-if="controlesRecientes.length > 0">
+                    <tr v-for="control in controlesRecientes" :key="control.id">
+                      <td class="fw-semibold">
+                        {{ patientNames.get(String(control.pacienteId)) || control.pacienteId }}
+                      </td>
+                      <td class="text-muted small">
+                        {{ new Date(control.fechaHora).toLocaleString() }}
+                      </td>
+                      <td>{{ control.temperatura }}</td>
+                      <td>{{ control.frecuenciaCardiaca }}</td>
+                      <td>{{ control.presionSistolica }}</td>
+                      <td>{{ control.presionDiastolica }}</td>
+                    </tr>
+                  </template>
+                  <tr v-else>
                     <td colspan="6" class="p-0">
                       <EmptyState
                         icon="bi-clipboard-check"
                         title="No hay controles registrados"
-                        description="Los registros de signos vitales se mostrarán aquí al conectar con el servidor."
+                        description="Registrá signos vitales desde el formulario para verlos aquí."
                         compact
                       />
                     </td>
@@ -383,7 +518,6 @@ const registrarControl = () => {
         </div>
       </div>
 
-      <!-- Columna derecha: Formulario de signos vitales -->
       <div class="col-12 col-xl-5">
         <div class="hospital-card mb-0">
           <div class="hospital-card-header">
@@ -394,7 +528,6 @@ const registrarControl = () => {
           </div>
           <div class="hospital-card-body">
             <form novalidate @submit.prevent="registrarControl">
-              <!-- Selector de paciente internado -->
               <div class="mb-3">
                 <label for="sv-paciente" class="form-label">
                   Paciente <span class="text-danger">*</span>
@@ -404,7 +537,6 @@ const registrarControl = () => {
                   v-model="form.pacienteId"
                   class="form-select"
                   :class="{ 'is-invalid': formErrors.pacienteId }"
-                  aria-describedby="sv-paciente-error"
                 >
                   <option value="">Seleccionar paciente internado...</option>
                   <option
@@ -421,182 +553,104 @@ const registrarControl = () => {
                 >
                   No hay pacientes internados disponibles.
                 </div>
-                <div
-                  v-if="formErrors.pacienteId"
-                  id="sv-paciente-error"
-                  class="invalid-feedback"
-                >
+                <div v-if="formErrors.pacienteId" class="invalid-feedback">
                   {{ formErrors.pacienteId }}
                 </div>
               </div>
 
-              <!-- Fecha y hora -->
               <div class="mb-3">
-                <label for="sv-fechahora" class="form-label">
+                <label for="sv-fecha" class="form-label">
                   Fecha y hora <span class="text-danger">*</span>
                 </label>
                 <input
-                  id="sv-fechahora"
+                  id="sv-fecha"
                   v-model="form.fechaHora"
                   type="datetime-local"
                   class="form-control"
                   :class="{ 'is-invalid': formErrors.fechaHora }"
-                  aria-describedby="sv-fechahora-error"
                 />
-                <div
-                  v-if="formErrors.fechaHora"
-                  id="sv-fechahora-error"
-                  class="invalid-feedback"
-                >
+                <div v-if="formErrors.fechaHora" class="invalid-feedback">
                   {{ formErrors.fechaHora }}
                 </div>
               </div>
 
-              <!-- Cuatro signos vitales -->
-              <div class="row g-3 mb-3">
-                <!-- Temperatura -->
+              <div class="row g-2 mb-3">
                 <div class="col-6">
-                  <label for="sv-temperatura" class="form-label">
-                    Temperatura (°C) <span class="text-danger">*</span>
-                  </label>
+                  <label for="sv-temp" class="form-label">Temperatura (°C) *</label>
                   <input
-                    id="sv-temperatura"
+                    id="sv-temp"
                     v-model.number="form.temperatura"
                     type="number"
                     step="0.1"
-                    min="30"
-                    max="45"
                     class="form-control"
                     :class="{ 'is-invalid': formErrors.temperatura }"
-                    placeholder="Ej: 36.5"
-                    aria-describedby="sv-temperatura-error"
                   />
-                  <div
-                    v-if="formErrors.temperatura"
-                    id="sv-temperatura-error"
-                    class="invalid-feedback"
-                  >
+                  <div v-if="formErrors.temperatura" class="invalid-feedback">
                     {{ formErrors.temperatura }}
                   </div>
                 </div>
-
-                <!-- Frecuencia cardíaca -->
                 <div class="col-6">
-                  <label for="sv-fc" class="form-label">
-                    Frec. cardíaca (lpm) <span class="text-danger">*</span>
-                  </label>
+                  <label for="sv-fc" class="form-label">FC (lpm) *</label>
                   <input
                     id="sv-fc"
                     v-model.number="form.frecuenciaCardiaca"
                     type="number"
-                    min="20"
-                    max="300"
                     class="form-control"
                     :class="{ 'is-invalid': formErrors.frecuenciaCardiaca }"
-                    placeholder="Ej: 72"
-                    aria-describedby="sv-fc-error"
                   />
-                  <div
-                    v-if="formErrors.frecuenciaCardiaca"
-                    id="sv-fc-error"
-                    class="invalid-feedback"
-                  >
+                  <div v-if="formErrors.frecuenciaCardiaca" class="invalid-feedback">
                     {{ formErrors.frecuenciaCardiaca }}
                   </div>
                 </div>
-
-                <!-- Presión sistólica -->
                 <div class="col-6">
-                  <label for="sv-sistolica" class="form-label">
-                    P. sistólica (mmHg) <span class="text-danger">*</span>
-                  </label>
+                  <label for="sv-sis" class="form-label">Sistólica *</label>
                   <input
-                    id="sv-sistolica"
+                    id="sv-sis"
                     v-model.number="form.presionSistolica"
                     type="number"
-                    min="50"
-                    max="300"
                     class="form-control"
                     :class="{ 'is-invalid': formErrors.presionSistolica }"
-                    placeholder="Ej: 120"
-                    aria-describedby="sv-sistolica-error"
                   />
-                  <div
-                    v-if="formErrors.presionSistolica"
-                    id="sv-sistolica-error"
-                    class="invalid-feedback"
-                  >
+                  <div v-if="formErrors.presionSistolica" class="invalid-feedback">
                     {{ formErrors.presionSistolica }}
                   </div>
                 </div>
-
-                <!-- Presión diastólica -->
                 <div class="col-6">
-                  <label for="sv-diastolica" class="form-label">
-                    P. diastólica (mmHg) <span class="text-danger">*</span>
-                  </label>
+                  <label for="sv-dia" class="form-label">Diastólica *</label>
                   <input
-                    id="sv-diastolica"
+                    id="sv-dia"
                     v-model.number="form.presionDiastolica"
                     type="number"
-                    min="30"
-                    max="200"
                     class="form-control"
                     :class="{ 'is-invalid': formErrors.presionDiastolica }"
-                    placeholder="Ej: 80"
-                    aria-describedby="sv-diastolica-error"
                   />
-                  <div
-                    v-if="formErrors.presionDiastolica"
-                    id="sv-diastolica-error"
-                    class="invalid-feedback"
-                  >
+                  <div v-if="formErrors.presionDiastolica" class="invalid-feedback">
                     {{ formErrors.presionDiastolica }}
                   </div>
                 </div>
               </div>
 
-              <!-- Observaciones (campo opcional) -->
-              <div class="mb-4">
-                <label for="sv-observaciones" class="form-label">
-                  Observaciones
-                </label>
+              <div class="mb-3">
+                <label for="sv-obs" class="form-label">Observaciones</label>
                 <textarea
-                  id="sv-observaciones"
+                  id="sv-obs"
                   v-model="form.observaciones"
                   class="form-control"
                   rows="2"
-                  placeholder="Observaciones clínicas adicionales (opcional)..."
                 ></textarea>
               </div>
 
-              <!-- Botones de acción -->
               <div class="d-flex gap-2 justify-content-end">
-                <button
-                  type="button"
-                  class="btn-hospital-outline"
-                  :disabled="isSubmitting"
-                  @click="cancelarFormulario"
-                >
-                  Cancelar
+                <button type="button" class="btn btn-outline-secondary" @click="cancelarFormulario">
+                  Limpiar
                 </button>
                 <button
                   type="submit"
-                  class="btn-hospital-primary"
-                  :disabled="isSubmitting"
+                  class="btn btn-danger"
+                  :disabled="isSubmitting || pacientesInternados.length === 0"
                 >
-                  <i class="bi bi-clipboard2-check"></i>
-                  Registrar control
+                  {{ isSubmitting ? 'Guardando…' : 'Registrar control' }}
                 </button>
-              </div>
-
-              <!-- Aviso de integración futura -->
-              <div class="alert alert-light border mt-3 py-2 px-3 d-flex align-items-center gap-2">
-                <i class="bi bi-info-circle" style="color: var(--hospital-red-primary);"></i>
-                <span class="small text-muted">
-                  El registro se habilitará al conectar con el servidor. Los campos y validaciones
-                  están listos para la integración.
-                </span>
               </div>
             </form>
           </div>

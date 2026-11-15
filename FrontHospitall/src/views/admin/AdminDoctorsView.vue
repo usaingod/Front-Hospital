@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import StatCard from '@/components/common/StatCard.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import BaseModal from '@/components/common/BaseModal.vue'
 import type { Medico, CreateMedicoDTO } from '@/types/medico'
+import { ApiError } from '@/services/api'
+import { medicosService } from '@/services/medicosService'
 
 /**
  * Vista: Gestión de Médicos del Administrador (AdminDoctorsView.vue)
@@ -16,33 +18,49 @@ import type { Medico, CreateMedicoDTO } from '@/types/medico'
  * - Modal visual para consultar, dar de alta y editar datos del médico.
  */
 
-// Colección reactiva de médicos (inicia vacía sin datos inventados)
 const medicos = ref<Medico[]>([])
+const availableSpecialties = ref<string[]>([])
 
-// Indicadores estadísticos sin datos ficticios
-const statCards = [
+const loadData = async () => {
+  const [docs, esp] = await Promise.all([
+    medicosService.getMedicos(),
+    medicosService.getEspecialidades(),
+  ])
+  medicos.value = docs
+  availableSpecialties.value = esp
+}
+
+onMounted(() => {
+  loadData().catch((err) => {
+    alert(err instanceof ApiError ? err.message : 'No se pudieron cargar los médicos')
+  })
+})
+
+const statCards = computed(() => [
   {
     label: 'Total Médicos',
     icon: 'bi-person-badge',
     colorClass: 'blue' as const,
     hint: 'Padrón médico registrado',
-    value: '—',
+    value: String(medicos.value.length || '—'),
   },
   {
     label: 'Médicos Activos',
     icon: 'bi-person-check',
     colorClass: 'green' as const,
     hint: 'Disponibles para asignación',
-    value: '—',
+    value: String(medicos.value.filter((m) => m.estado === 'activo').length || '—'),
   },
   {
     label: 'En Licencia / Inactivos',
     icon: 'bi-person-x',
     colorClass: 'rose' as const,
     hint: 'Temporalmente no operativos',
-    value: '—',
+    value: String(
+      medicos.value.filter((m) => m.estado !== 'activo').length || '—',
+    ),
   },
-]
+])
 
 // Filtros y búsqueda
 const searchQuery = ref('')
@@ -66,18 +84,6 @@ const form = ref<CreateMedicoDTO>({
   observaciones: '',
   estado: 'activo',
 })
-
-// Especialidades médicas para el selector
-const availableSpecialties = [
-  'Cardiología',
-  'Pediatría',
-  'Traumatología',
-  'Dermatología',
-  'Ginecología',
-  'Oftalmología',
-  'Neurología',
-  'Clínica Médica',
-]
 
 // Modal para Crear
 const openCreateModal = () => {
@@ -134,9 +140,13 @@ const openEditModal = (doctor: Medico) => {
 }
 
 // Acción visual para Eliminar
-const handleDelete = (doctor: Medico) => {
-  if (confirm(`¿Desea dar de baja al Dr/a. ${doctor.nombre} ${doctor.apellido || ''}?`)) {
-    alert('Acción visual. La eliminación se efectuará con la API en el backend.')
+const handleDelete = async (doctor: Medico) => {
+  if (!confirm(`¿Desea dar de baja al Dr/a. ${doctor.nombre} ${doctor.apellido || ''}?`)) return
+  try {
+    await medicosService.deleteMedico(doctor.id)
+    await loadData()
+  } catch (err) {
+    alert(err instanceof ApiError ? err.message : 'No se pudo dar de baja')
   }
 }
 
@@ -144,9 +154,22 @@ const closeModal = () => {
   isModalOpen.value = false
 }
 
-const handleSave = () => {
-  alert('Acción visual de guardado. El backend procesará la operación en la etapa de integración.')
-  closeModal()
+const handleSave = async () => {
+  if (modalMode.value === 'consultar') {
+    closeModal()
+    return
+  }
+  try {
+    if (modalMode.value === 'crear') {
+      await medicosService.createMedico(form.value)
+    } else if (selectedDoctor.value) {
+      await medicosService.updateMedico(selectedDoctor.value.id, form.value)
+    }
+    await loadData()
+    closeModal()
+  } catch (err) {
+    alert(err instanceof ApiError ? err.message : 'No se pudo guardar')
+  }
 }
 
 // Filtrado reactivo de la lista de médicos

@@ -6,7 +6,7 @@
  */
 
 // Estados posibles de una cama (deben verificarse contra el backend real)
-export type EstadoCama = 'disponible' | 'ocupada' | 'en_limpieza'
+export type EstadoCama = 'disponible' | 'ocupada' | 'en_limpieza' | 'bloqueada'
 
 // Modelo de Ala hospitalaria para la gestión de infraestructura (Perfil Administrador)
 export interface Ala {
@@ -32,6 +32,13 @@ export interface Cama {
   pacienteNombre?: string
   pacienteDni?: string
   internacionId?: string
+  ultimoSignos?: {
+    fechaHora: string
+    temperatura: number
+    frecuenciaCardiaca: number
+    presionSistolica: number
+    presionDiastolica: number
+  }
 }
 
 export interface CamaFilter {
@@ -66,6 +73,8 @@ export interface Internacion {
   numeroCama: string
   fechaIngreso: string   // ISO 8601
   diagnostico?: string
+  motivo?: string
+  protocolTasks?: string[]
   medicoTratanteId?: string
   medicoTratanteNombre?: string
   estado?: string        // Estado de internación (activo, alta, traslado, etc.)
@@ -83,6 +92,7 @@ export interface CreateInternacionDTO {
   camaId: string
   fechaIngreso: string
   diagnostico?: string
+  motivo?: string
   medicoTratanteId?: string
   observaciones?: string
 }

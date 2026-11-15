@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { ApiError } from '@/services/api'
 import PageHeader from '@/components/common/PageHeader.vue'
 import StatCard from '@/components/common/StatCard.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
@@ -25,8 +26,24 @@ import { pacientesService } from '@/services/pacientesService'
  * - Sin registros ficticios, mocks ni simulaciones engañosas de persistencia.
  */
 
-// Colección reactiva de pacientes (inicia vacía según la regla de no incorporar datos ficticios)
 const pacientes = ref<Paciente[]>([])
+const loadError = ref('')
+const isLoading = ref(false)
+
+const loadPacientes = async () => {
+  isLoading.value = true
+  loadError.value = ''
+  try {
+    pacientes.value = await pacientesService.getPacientes()
+  } catch (err) {
+    loadError.value =
+      err instanceof ApiError ? err.message : 'No se pudieron cargar los pacientes'
+  } finally {
+    isLoading.value = false
+  }
+}
+
+onMounted(loadPacientes)
 
 // Indicadores estadísticos sin datos precargados (muestran guion según especificación)
 const statCards = [
@@ -163,21 +180,39 @@ const closePatientModal = () => {
 }
 
 const handlePatientSubmit = async () => {
-  // Validación básica visual
   if (!patientForm.value.nombre.trim() || !patientForm.value.apellido.trim()) {
     alert('Por favor, ingresá al menos el nombre y apellido del paciente.')
     return
   }
+  if (!patientForm.value.dni.trim()) {
+    alert('El DNI es obligatorio.')
+    return
+  }
 
-  // En esta etapa de preparación sin conexión, se documenta la llamada al servicio:
-  // const payload: CreatePacienteDTO = { ...patientForm.value }
-  // if (modalMode.value === 'crear') await pacientesService.createPaciente(payload)
-  // else await pacientesService.updatePaciente(editingPatientId.value!, payload)
+  const payload: CreatePacienteDTO = {
+    nombre: patientForm.value.nombre.trim(),
+    apellido: patientForm.value.apellido.trim(),
+    dni: patientForm.value.dni.trim(),
+    fechaNacimiento: patientForm.value.fechaNacimiento,
+    telefono: patientForm.value.telefono,
+    email: patientForm.value.email,
+    direccion: patientForm.value.direccion,
+    obraSocial: patientForm.value.obraSocial,
+    numeroAfiliado: patientForm.value.numeroAfiliado,
+    observaciones: patientForm.value.observaciones,
+  }
 
-  alert(
-    `Formulario de paciente (${modalMode.value === 'crear' ? 'Alta' : 'Edición'}) validado. El saldo total adeudado ($${patientForm.value.saldoTotal || 0}) se sincronizará con el backend al integrar la API.`
-  )
-  closePatientModal()
+  try {
+    if (modalMode.value === 'crear') {
+      await pacientesService.createPaciente(payload)
+    } else if (editingPatientId.value != null) {
+      await pacientesService.updatePaciente(editingPatientId.value, payload)
+    }
+    await loadPacientes()
+    closePatientModal()
+  } catch (err) {
+    alert(err instanceof ApiError ? err.message : 'No se pudo guardar el paciente')
+  }
 }
 
 // ============================================================
@@ -226,14 +261,18 @@ const handleConfirmPayment = async () => {
   isProcessingPayment.value = true
 
   try {
-    // Llamada preparada hacia la capa de servicios sin llamadas HTTP activas en esta etapa:
-    await pacientesService.cancelarSaldoTotal(selectedPatient.value.id)
-
-    // Notificación informativa: no simular mutaciones directas en el frontend sin confirmación real del servidor
-    alert(
-      `Operación de pago total registrada para el paciente ${selectedPatient.value.nombre} ${selectedPatient.value.apellido}. Al conectar con la API, el backend establecerá appointmentBalance = 0 y supplyBalance = 0, actualizando la cuenta a «Al día».`
+    const updated = await pacientesService.cancelarSaldoTotal(
+      selectedPatient.value.id,
     )
+    if (updated) {
+      selectedPatient.value = updated
+      pacientes.value = pacientes.value.map((p) =>
+        p.id === updated.id ? updated : p,
+      )
+    }
     closeConfirmPaymentModal()
+  } catch (err) {
+    alert(err instanceof ApiError ? err.message : 'No se pudo registrar el pago')
   } finally {
     isProcessingPayment.value = false
   }
