@@ -193,7 +193,11 @@ const handleLogout = async () => {
           :key="item.path"
           :to="item.path"
           class="hospital-nav-link"
-          :class="{ active: route.path.startsWith(item.path) }"
+          :class="{
+            active:
+              route.path === item.path ||
+              route.path.startsWith(`${item.path}/`),
+          }"
           @click="uiStore.closeSidebar"
         >
           <i :class="['bi', item.icon]"></i>

@@ -207,12 +207,20 @@ const isEditCamaModalOpen = ref(false)
 const selectedCamaParaEditar = ref<Cama | null>(null)
 const formEditCama = ref<UpdateCamaDTO>({
   ala: '',
+  alaId: '',
+  sala: '',
 })
+const isSubmittingEdit = ref(false)
+const isSubmittingDelete = ref(false)
 
 const openEditCamaModal = (cama: Cama) => {
   selectedCamaParaEditar.value = cama
+  const alaNombre = cama.ala || cama.sala || ''
+  const alaObj = alas.value.find((a) => a.nombre === alaNombre)
   formEditCama.value = {
-    ala: cama.ala || cama.sala || '',
+    ala: alaNombre,
+    alaId: cama.alaId || alaObj?.id || '',
+    sala: cama.sala || alaNombre,
   }
   isEditCamaModalOpen.value = true
 }
@@ -222,11 +230,33 @@ const closeEditCamaModal = () => {
   selectedCamaParaEditar.value = null
 }
 
-const handleEditCamaSubmit = () => {
-  alert(
-    'Modificación de cama validada. Se sincronizará con el backend al conectar los endpoints correspondientes.'
-  )
-  closeEditCamaModal()
+const onEditAlaChange = () => {
+  const alaObj = alas.value.find((a) => a.nombre === formEditCama.value.ala)
+  formEditCama.value.alaId = alaObj?.id || ''
+  formEditCama.value.sala = formEditCama.value.ala
+}
+
+const handleEditCamaSubmit = async () => {
+  if (!selectedCamaParaEditar.value) return
+  if (!formEditCama.value.ala) {
+    alert('Seleccioná un ala')
+    return
+  }
+  isSubmittingEdit.value = true
+  try {
+    const alaObj = alas.value.find((a) => a.nombre === formEditCama.value.ala)
+    await camasService.update(String(selectedCamaParaEditar.value.id), {
+      ala: formEditCama.value.ala,
+      alaId: alaObj?.id || formEditCama.value.alaId,
+      sala: formEditCama.value.ala,
+    })
+    await loadData()
+    closeEditCamaModal()
+  } catch (err) {
+    alert(err instanceof ApiError ? err.message : 'No se pudo modificar la cama')
+  } finally {
+    isSubmittingEdit.value = false
+  }
 }
 
 // ============================================================
@@ -245,11 +275,22 @@ const closeDeleteCamaModal = () => {
   selectedCamaParaEliminar.value = null
 }
 
-const handleDeleteCamaConfirm = () => {
-  alert(
-    'Solicitud de eliminación validada. El backend verificará las restricciones de integridad antes de confirmar la baja definitiva.'
-  )
-  closeDeleteCamaModal()
+const handleDeleteCamaConfirm = async () => {
+  if (!selectedCamaParaEliminar.value) return
+  isSubmittingDelete.value = true
+  try {
+    await camasService.delete(String(selectedCamaParaEliminar.value.id))
+    await loadData()
+    closeDeleteCamaModal()
+  } catch (err) {
+    alert(
+      err instanceof ApiError
+        ? err.message
+        : 'No se pudo eliminar la cama (puede estar ocupada o con historial)',
+    )
+  } finally {
+    isSubmittingDelete.value = false
+  }
 }
 </script>
 
@@ -668,10 +709,15 @@ const handleDeleteCamaConfirm = () => {
             id="edit-cama-ala"
             v-model="formEditCama.ala"
             class="form-select"
+            @change="onEditAlaChange"
           >
             <option value="">Seleccionar ala...</option>
-            <option v-for="ala in alasDisponibles" :key="ala" :value="ala">
-              {{ ala }}
+            <option
+              v-for="ala in alas"
+              :key="ala.id"
+              :value="ala.nombre"
+            >
+              {{ ala.nombre }}
             </option>
           </select>
         </div>
@@ -681,6 +727,7 @@ const handleDeleteCamaConfirm = () => {
         <button
           type="button"
           class="btn-hospital-outline"
+          :disabled="isSubmittingEdit"
           @click="closeEditCamaModal"
         >
           Cancelar
@@ -689,9 +736,10 @@ const handleDeleteCamaConfirm = () => {
           type="submit"
           form="form-editar-cama"
           class="btn-hospital-primary"
+          :disabled="isSubmittingEdit"
         >
           <i class="bi bi-check2"></i>
-          <span>Guardar cambios</span>
+          <span>{{ isSubmittingEdit ? 'Guardando…' : 'Guardar cambios' }}</span>
         </button>
       </template>
     </BaseModal>
@@ -723,6 +771,7 @@ const handleDeleteCamaConfirm = () => {
         <button
           type="button"
           class="btn-hospital-outline"
+          :disabled="isSubmittingDelete"
           @click="closeDeleteCamaModal"
         >
           Cancelar
@@ -730,10 +779,11 @@ const handleDeleteCamaConfirm = () => {
         <button
           type="button"
           class="btn btn-danger d-inline-flex align-items-center gap-1"
+          :disabled="isSubmittingDelete"
           @click="handleDeleteCamaConfirm"
         >
           <i class="bi bi-trash"></i>
-          <span>Eliminar cama</span>
+          <span>{{ isSubmittingDelete ? 'Eliminando…' : 'Eliminar cama' }}</span>
         </button>
       </template>
     </BaseModal>
