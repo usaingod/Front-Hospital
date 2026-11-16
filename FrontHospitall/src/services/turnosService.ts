@@ -14,6 +14,7 @@ import type {
   TurnoFilter,
   WaitlistItem,
 } from '@/types/turno'
+import { clinicDateTimeToIso, clinicPartsFromIso } from '@/utils/dateLocal'
 
 type ApiBookingResult =
   | { result: 'programado'; appointment: ApiAppointment }
@@ -42,16 +43,6 @@ function resolveBranchId(
   return central?.id || branches[0]?.id
 }
 
-function localParts(iso: string) {
-  const d = new Date(iso)
-  const yyyy = d.getFullYear()
-  const mm = String(d.getMonth() + 1).padStart(2, '0')
-  const dd = String(d.getDate()).padStart(2, '0')
-  const hh = String(d.getHours()).padStart(2, '0')
-  const mi = String(d.getMinutes()).padStart(2, '0')
-  return { fecha: `${yyyy}-${mm}-${dd}`, hora: `${hh}:${mi}`, date: d }
-}
-
 function mapTurno(
   a: ApiAppointment,
   patients: Map<string, ApiPatient>,
@@ -65,7 +56,7 @@ function mapTurno(
       .map((id) => specialties.get(id)?.name)
       .filter(Boolean)
       .join(', ') || '—'
-  const { fecha, hora } = localParts(a.startAt)
+  const { fecha, hora } = clinicPartsFromIso(a.startAt)
   return {
     id: a.id,
     fecha,
@@ -178,15 +169,17 @@ export const turnosService = {
     const branchId = resolveBranchId(maps.branches, professional?.branchIds)
     if (!branchId) throw new Error('No hay sedes configuradas')
 
-    const start = new Date(`${data.fecha}T${data.hora}:00`)
+    const startAt = clinicDateTimeToIso(data.fecha, data.hora)
     const durationMin = data.entreturno ? 15 : 30
-    const end = new Date(start.getTime() + durationMin * 60 * 1000)
+    const endAt = new Date(
+      new Date(startAt).getTime() + durationMin * 60 * 1000,
+    ).toISOString()
     const booking = await api.post<ApiBookingResult>('/appointments', {
       patientId,
       professionalId,
       branchId,
-      startAt: start.toISOString(),
-      endAt: end.toISOString(),
+      startAt,
+      endAt,
       notes: data.observaciones,
       entreturno: data.entreturno || undefined,
     })

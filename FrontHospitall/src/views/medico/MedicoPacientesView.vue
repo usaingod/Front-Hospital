@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import PageHeader from '@/components/common/PageHeader.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
@@ -211,11 +211,29 @@ const crearPrescripcion = async () => {
   }
 }
 
-onMounted(async () => {
+const applyRoutePatientSelection = () => {
   const queryTab = route.query.tab as string
   if (queryTab && ['historia', 'turnos', 'datos', 'observaciones'].includes(queryTab)) {
     activeTabTurnos.value = queryTab as 'historia' | 'turnos' | 'datos' | 'observaciones'
   }
+
+  const pacienteId = route.query.pacienteId
+    ? String(route.query.pacienteId)
+    : ''
+  const dni = route.query.dni ? String(route.query.dni) : ''
+  if (!pacienteId && !dni) return
+
+  activePadron.value = 'turnos'
+  const found =
+    pacientesTurnos.value.find((p) => String(p.id) === pacienteId) ||
+    pacientesTurnos.value.find((p) => p.dni === dni)
+  if (found) {
+    selectedPatientTurnos.value = found
+    searchQueryTurnos.value = found.dni || `${found.apellido}`
+  }
+}
+
+onMounted(async () => {
   try {
     const [patients, stays, supplies] = await Promise.all([
       pacientesService.getPacientes(),
@@ -225,10 +243,18 @@ onMounted(async () => {
     pacientesTurnos.value = patients
     internaciones.value = stays
     catalogoSupplies.value = supplies
+    applyRoutePatientSelection()
   } catch (err) {
     alert(err instanceof ApiError ? err.message : 'No se pudieron cargar los pacientes')
   }
 })
+
+watch(
+  () => [route.query.pacienteId, route.query.dni, route.query.tab],
+  () => {
+    applyRoutePatientSelection()
+  },
+)
 </script>
 
 <template>

@@ -7,6 +7,7 @@ import EmptyState from '@/components/common/EmptyState.vue'
 import type { Turno } from '@/types/turno'
 import { ApiError } from '@/services/api'
 import { turnosService } from '@/services/turnosService'
+import { todayIsoLocal } from '@/utils/dateLocal'
 
 /**
  * Vista de Inicio (Secretaría)
@@ -16,7 +17,7 @@ import { turnosService } from '@/services/turnosService'
 const router = useRouter()
 
 const turnosHoy = ref<Turno[]>([])
-const todayIso = new Date().toISOString().substring(0, 10)
+const todayIso = todayIsoLocal()
 
 onMounted(() => {
   turnosService
@@ -277,7 +278,6 @@ const navigateTo = (path: string) => {
                     <th scope="col">Especialidad</th>
                     <th scope="col">Médico</th>
                     <th scope="col" style="width: 140px;">Estado</th>
-                    <th scope="col" class="text-center" style="width: 110px;">Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -293,17 +293,12 @@ const navigateTo = (path: string) => {
                           {{ turno.estado }}
                         </span>
                       </td>
-                      <td class="text-center">
-                        <button class="btn btn-sm btn-outline-secondary py-0 px-2" disabled>
-                          Ver
-                        </button>
-                      </td>
                     </tr>
                   </template>
 
                   <!-- Directiva v-else para estado vacío estandarizado sin datos ficticios -->
                   <tr v-else>
-                    <td colspan="6" class="p-0">
+                    <td colspan="5" class="p-0">
                       <EmptyState
                         icon="bi-inbox"
                         title="No hay datos para mostrar"

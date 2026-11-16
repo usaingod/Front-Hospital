@@ -1,13 +1,24 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import PageHeader from '@/components/common/PageHeader.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import type { Turno } from '@/types/turno'
 import { ApiError } from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
 import { turnosService } from '@/services/turnosService'
+import {
+  addDaysIso,
+  addMonthsIso,
+  formatDisplayDate,
+  parseIsoDateLocal,
+  startOfWeekMonday,
+  todayIsoLocal,
+  toIsoDateLocal,
+} from '@/utils/dateLocal'
 
 const actionBusy = ref(false)
+const router = useRouter()
 
 /**
  * Vista de Turnos (Perfil Médico)
@@ -25,7 +36,7 @@ const actionBusy = ref(false)
 const viewMode = ref<'dia' | 'semana' | 'mes'>('dia')
 
 // Fecha actual seleccionada (formato YYYY-MM-DD)
-const selectedDate = ref(new Date().toISOString().substring(0, 10))
+const selectedDate = ref(todayIsoLocal())
 
 // Filtros visuales
 const filterEstado = ref('')
@@ -50,17 +61,20 @@ onMounted(() => {
     })
 })
 
+const matchesTurnoFilters = (t: Turno) => {
+  const matchesEstado = !filterEstado.value || t.estado === filterEstado.value
+  const matchesFranja =
+    filterFranja.value === 'todos' ||
+    (filterFranja.value === 'manana' && t.hora <= '12:30') ||
+    (filterFranja.value === 'tarde' && t.hora >= '13:00' && t.hora <= '17:30') ||
+    (filterFranja.value === 'vespertino' && t.hora >= '18:00')
+  return matchesEstado && matchesFranja
+}
+
+const turnosFiltrados = computed(() => turnos.value.filter(matchesTurnoFilters))
+
 const turnosDelDia = computed(() =>
-  turnos.value.filter((t) => {
-    const matchesFecha = t.fecha === selectedDate.value
-    const matchesEstado = !filterEstado.value || t.estado === filterEstado.value
-    const matchesFranja =
-      filterFranja.value === 'todos' ||
-      (filterFranja.value === 'manana' && t.hora <= '12:30') ||
-      (filterFranja.value === 'tarde' && t.hora >= '13:00' && t.hora <= '17:30') ||
-      (filterFranja.value === 'vespertino' && t.hora >= '18:00')
-    return matchesFecha && matchesEstado && matchesFranja
-  }),
+  turnosFiltrados.value.filter((t) => t.fecha === selectedDate.value),
 )
 
 const turnoEnHora = (hora: string) => turnosDelDia.value.find((t) => t.hora === hora)
@@ -85,77 +99,85 @@ const filteredTimeSlots = computed(() => {
   return baseTimeSlots
 })
 
-// Días de la semana para vista semanal
 const weekDays = computed(() => {
-  const current = new Date(selectedDate.value)
-  const dayOfWeek = current.getDay() // 0 = Domingo
-  const startOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek // Lunes
-  const monday = new Date(current)
-  monday.setDate(current.getDate() + startOffset)
-
-  const days = []
+  const monday = startOfWeekMonday(selectedDate.value)
   const dayNames = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
-
-  for (let i = 0; i < 6; i++) {
-    const d = new Date(monday)
-    d.setDate(monday.getDate() + i)
-    days.push({
-      name: dayNames[i],
-      dateNumber: d.getDate(),
-      isoDate: d.toISOString().substring(0, 10),
-      isToday: d.toDateString() === new Date().toDateString(),
-      isSelected: d.toISOString().substring(0, 10) === selectedDate.value,
-    })
-  }
-
-  return days
+  return dayNames.map((name, i) => {
+    const isoDate = addDaysIso(monday, i)
+    const dayTurnos = turnosFiltrados.value.filter((t) => t.fecha === isoDate)
+    return {
+      name,
+      dateNumber: parseIsoDateLocal(isoDate).getDate(),
+      isoDate,
+      isToday: isoDate === todayIsoLocal(),
+      isSelected: isoDate === selectedDate.value,
+      turnos: dayTurnos,
+      count: dayTurnos.length,
+    }
+  })
 })
 
-// Navegación temporal
-const prevDate = () => {
-  const current = new Date(selectedDate.value)
-  if (viewMode.value === 'dia') {
-    current.setDate(current.getDate() - 1)
-  } else if (viewMode.value === 'semana') {
-    current.setDate(current.getDate() - 7)
-  } else {
-    current.setMonth(current.getMonth() - 1)
+const monthCells = computed(() => {
+  const anchor = parseIsoDateLocal(selectedDate.value)
+  const year = anchor.getFullYear()
+  const month = anchor.getMonth()
+  const first = new Date(year, month, 1)
+  const startOffset = (first.getDay() + 6) % 7
+  const start = new Date(year, month, 1 - startOffset)
+  const cells = []
+  for (let i = 0; i < 42; i++) {
+    const d = new Date(start)
+    d.setDate(start.getDate() + i)
+    const isoDate = toIsoDateLocal(d)
+    const count = turnosFiltrados.value.filter((t) => t.fecha === isoDate).length
+    cells.push({
+      isoDate,
+      dateNumber: d.getDate(),
+      inMonth: d.getMonth() === month,
+      isSelected: isoDate === selectedDate.value,
+      isToday: isoDate === todayIsoLocal(),
+      count,
+    })
   }
-  selectedDate.value = current.toISOString().substring(0, 10)
+  return cells
+})
+
+const monthTitle = computed(() => {
+  const d = parseIsoDateLocal(selectedDate.value)
+  const str = d.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })
+  return str.charAt(0).toUpperCase() + str.slice(1)
+})
+
+const selectCalendarDay = (isoDate: string) => {
+  selectedDate.value = isoDate
+  viewMode.value = 'dia'
+}
+
+const prevDate = () => {
+  if (viewMode.value === 'semana') {
+    selectedDate.value = addDaysIso(selectedDate.value, -7)
+  } else if (viewMode.value === 'mes') {
+    selectedDate.value = addMonthsIso(selectedDate.value, -1)
+  } else {
+    selectedDate.value = addDaysIso(selectedDate.value, -1)
+  }
 }
 
 const nextDate = () => {
-  const current = new Date(selectedDate.value)
-  if (viewMode.value === 'dia') {
-    current.setDate(current.getDate() + 1)
-  } else if (viewMode.value === 'semana') {
-    current.setDate(current.getDate() + 7)
+  if (viewMode.value === 'semana') {
+    selectedDate.value = addDaysIso(selectedDate.value, 7)
+  } else if (viewMode.value === 'mes') {
+    selectedDate.value = addMonthsIso(selectedDate.value, 1)
   } else {
-    current.setMonth(current.getMonth() + 1)
+    selectedDate.value = addDaysIso(selectedDate.value, 1)
   }
-  selectedDate.value = current.toISOString().substring(0, 10)
 }
 
 const setToday = () => {
-  selectedDate.value = new Date().toISOString().substring(0, 10)
+  selectedDate.value = todayIsoLocal()
 }
 
-// Fecha formateada para visualización humana
-const formattedDisplayDate = computed(() => {
-  if (!selectedDate.value) return ''
-  const parts = selectedDate.value.split('-').map(Number)
-  const year = parts[0] ?? 2026
-  const month = parts[1] ?? 1
-  const day = parts[2] ?? 1
-  const d = new Date(year, month - 1, day)
-  const str = d.toLocaleDateString('es-ES', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  })
-  return str.charAt(0).toUpperCase() + str.slice(1)
-})
+const formattedDisplayDate = computed(() => formatDisplayDate(selectedDate.value))
 
 // Selección e inspección de detalle de turno
 const handleSelectTurno = (turno: Turno) => {
@@ -192,6 +214,19 @@ const marcarAtendido = async () => {
   } finally {
     actionBusy.value = false
   }
+}
+
+const irAlPaciente = () => {
+  const turno = selectedTurno.value
+  if (!turno) return
+  void router.push({
+    name: 'medico-pacientes',
+    query: {
+      pacienteId: turno.pacienteId ? String(turno.pacienteId) : undefined,
+      dni: turno.pacienteDni || undefined,
+      tab: 'datos',
+    },
+  })
 }
 
 const estadoLabel = (turno: Turno) => {
@@ -480,7 +515,6 @@ const resetFilters = () => {
           </div>
         </template>
 
-        <!-- Modo Semana: Grilla semanal compacta -->
         <template v-else-if="viewMode === 'semana'">
           <div class="hospital-card mb-0">
             <div class="hospital-card-header">
@@ -488,57 +522,88 @@ const resetFilters = () => {
                 <i class="bi bi-calendar-week text-warning"></i>
                 <span>Agenda semanal</span>
               </div>
-              <span class="text-muted small">Semana del {{ weekDays[0]?.dateNumber }} al {{ weekDays[5]?.dateNumber }}</span>
+              <span class="text-muted small">
+                {{ weekDays[0]?.isoDate }} → {{ weekDays[5]?.isoDate }}
+              </span>
             </div>
 
             <div class="hospital-card-body p-3">
-              <div class="row g-2 text-center mb-3">
-                <div
-                  v-for="day in weekDays"
-                  :key="day.isoDate"
-                  class="col"
-                >
-                  <div
-                    class="p-2 border rounded"
+              <div class="row g-2">
+                <div v-for="day in weekDays" :key="day.isoDate" class="col-12 col-md-6 col-xl-4">
+                  <button
+                    type="button"
+                    class="w-100 text-start border rounded p-3 bg-white"
                     :class="{
                       'bg-warning-subtle border-warning': day.isSelected,
-                      'bg-light': !day.isSelected,
+                      'border-primary': day.isToday && !day.isSelected,
                     }"
+                    @click="selectCalendarDay(day.isoDate)"
                   >
-                    <div class="fw-bold small text-muted">{{ day.name }}</div>
-                    <div class="fs-5 fw-bold text-dark">{{ day.dateNumber }}</div>
-                  </div>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                      <div>
+                        <div class="fw-semibold">{{ day.name }} {{ day.dateNumber }}</div>
+                        <div class="small text-muted">{{ day.isoDate }}</div>
+                      </div>
+                      <span class="badge" :class="day.count ? 'bg-warning text-dark' : 'bg-light text-muted border'">
+                        {{ day.count }}
+                      </span>
+                    </div>
+                    <ul v-if="day.turnos.length" class="list-unstyled mb-0 small">
+                      <li v-for="t in day.turnos.slice(0, 5)" :key="t.id" class="mb-1">
+                        <span class="fw-semibold">{{ t.hora }}</span> · {{ t.paciente }}
+                      </li>
+                      <li v-if="day.turnos.length > 5" class="text-muted">
+                        +{{ day.turnos.length - 5 }} más…
+                      </li>
+                    </ul>
+                    <div v-else class="small text-muted">Sin turnos</div>
+                  </button>
                 </div>
               </div>
-
-              <!-- Estado vacío semanal -->
-              <EmptyState
-                icon="bi-calendar-week"
-                title="Agenda semanal sin turnos programados"
-                description="Las citas de cada jornada de la semana se distribuirán en esta sección al integrarse con el backend."
-                compact
-              />
             </div>
           </div>
         </template>
 
-        <!-- Modo Mes: Calendario mensual amplio -->
         <template v-else>
           <div class="hospital-card mb-0">
             <div class="hospital-card-header">
               <div class="hospital-card-title">
                 <i class="bi bi-calendar-month text-warning"></i>
-                <span>Vista mensual de turnos</span>
+                <span>{{ monthTitle }}</span>
               </div>
-              <span class="text-muted small">{{ formattedDisplayDate }}</span>
+              <span class="text-muted small">Clic en un día para ver la agenda</span>
             </div>
 
-            <div class="hospital-card-body p-4">
-              <EmptyState
-                icon="bi-calendar-month"
-                title="Vista mensual preparada para sincronización"
-                description="El desglose de turnos acumulados por día del mes se visualizará de forma interactiva una vez provistos por el servidor."
-              />
+            <div class="hospital-card-body p-3">
+              <div
+                class="small fw-semibold text-muted mb-2 text-center"
+                style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.35rem;"
+              >
+                <div>Lun</div><div>Mar</div><div>Mié</div><div>Jue</div><div>Vie</div><div>Sáb</div><div>Dom</div>
+              </div>
+              <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.35rem;">
+                <button
+                  v-for="cell in monthCells"
+                  :key="cell.isoDate"
+                  type="button"
+                  class="border rounded py-2 px-1"
+                  :class="{
+                    'bg-warning-subtle border-warning': cell.isSelected,
+                    'bg-white': cell.inMonth && !cell.isSelected,
+                    'bg-light text-muted': !cell.inMonth,
+                    'border-primary': cell.isToday && !cell.isSelected,
+                  }"
+                  @click="selectCalendarDay(cell.isoDate)"
+                >
+                  <div class="fw-semibold">{{ cell.dateNumber }}</div>
+                  <div
+                    class="small"
+                    :class="cell.count ? 'text-warning-emphasis fw-semibold' : 'text-muted'"
+                  >
+                    {{ cell.count || '—' }}
+                  </div>
+                </button>
+              </div>
             </div>
           </div>
         </template>
@@ -601,9 +666,18 @@ const resetFilters = () => {
 
             <div class="pt-3 border-top d-grid gap-2">
               <button
-                v-if="selectedTurno.statusApi === 'en_sala_de_espera'"
                 type="button"
                 class="btn btn-sm btn-hospital-primary"
+                :disabled="!selectedTurno.pacienteId && !selectedTurno.pacienteDni"
+                @click="irAlPaciente"
+              >
+                <i class="bi bi-person-vcard me-1"></i>
+                Ver ficha del paciente
+              </button>
+              <button
+                v-if="selectedTurno.statusApi === 'en_sala_de_espera'"
+                type="button"
+                class="btn btn-sm btn-outline-warning text-dark"
                 :disabled="actionBusy"
                 @click="marcarAtendido"
               >

@@ -8,6 +8,7 @@ import type { Turno } from '@/types/turno'
 import { ApiError } from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
 import { turnosService } from '@/services/turnosService'
+import { todayIsoLocal } from '@/utils/dateLocal'
 
 /**
  * Vista de Inicio (Perfil Médico)
@@ -35,7 +36,7 @@ const todayFormatted = computed(() => {
 const auth = useAuthStore()
 const turnosHoy = ref<Turno[]>([])
 const proximosTurnos = ref<Turno[]>([])
-const todayIso = new Date().toISOString().substring(0, 10)
+const todayIso = todayIsoLocal()
 
 onMounted(() => {
   turnosService

@@ -11,9 +11,18 @@ import { billingService } from '@/services/billingService'
 import { medicosService } from '@/services/medicosService'
 import { pacientesService } from '@/services/pacientesService'
 import { turnosService } from '@/services/turnosService'
+import {
+  addDaysIso,
+  addMonthsIso,
+  formatDisplayDate,
+  parseIsoDateLocal,
+  startOfWeekMonday,
+  todayIsoLocal,
+  toIsoDateLocal,
+} from '@/utils/dateLocal'
 
 const viewMode = ref<'dia' | 'semana' | 'mes'>('dia')
-const selectedDate = ref(new Date().toISOString().substring(0, 10))
+const selectedDate = ref(todayIsoLocal())
 const filterEspecialidad = ref('')
 const filterMedico = ref('')
 const filterPaciente = ref('')
@@ -86,15 +95,105 @@ const preparedDoctorColumns = computed(() => {
     }))
 })
 
-const turnosDelDia = computed(() => {
-  return turnos.value.filter((t) => {
-    const matchesFecha = t.fecha === selectedDate.value
-    const matchesPaciente =
-      !filterPaciente.value ||
-      t.paciente.toLowerCase().includes(filterPaciente.value.toLowerCase()) ||
-      (t.pacienteDni || '').includes(filterPaciente.value)
-    return matchesFecha && matchesPaciente
+const matchesPacienteFilter = (t: Turno) =>
+  !filterPaciente.value ||
+  t.paciente.toLowerCase().includes(filterPaciente.value.toLowerCase()) ||
+  (t.pacienteDni || '').includes(filterPaciente.value)
+
+const matchesFranjaFilter = (hora: string) => {
+  if (filterTurnoHorario.value === 'manana') return hora <= '12:30'
+  if (filterTurnoHorario.value === 'tarde') return hora >= '13:00' && hora <= '17:30'
+  if (filterTurnoHorario.value === 'vespertino') return hora >= '18:00'
+  return true
+}
+
+const turnosFiltradosBase = computed(() =>
+  turnos.value.filter((t) => {
+    const matchesEsp =
+      !filterEspecialidad.value || t.especialidad.includes(filterEspecialidad.value)
+    const matchesMedico =
+      !filterMedico.value || String(t.medicoId) === filterMedico.value
+    return (
+      matchesEsp &&
+      matchesMedico &&
+      matchesPacienteFilter(t) &&
+      matchesFranjaFilter(t.hora)
+    )
+  }),
+)
+
+const turnosDelDia = computed(() =>
+  turnosFiltradosBase.value.filter((t) => t.fecha === selectedDate.value),
+)
+
+const weekDays = computed(() => {
+  const monday = startOfWeekMonday(selectedDate.value)
+  const names = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
+  return names.map((name, i) => {
+    const isoDate = addDaysIso(monday, i)
+    const dayTurnos = turnosFiltradosBase.value.filter((t) => t.fecha === isoDate)
+    return {
+      name,
+      isoDate,
+      dateNumber: parseIsoDateLocal(isoDate).getDate(),
+      isSelected: isoDate === selectedDate.value,
+      isToday: isoDate === todayIsoLocal(),
+      turnos: dayTurnos,
+      count: dayTurnos.length,
+    }
   })
+})
+
+const monthCells = computed(() => {
+  const anchor = parseIsoDateLocal(selectedDate.value)
+  const year = anchor.getFullYear()
+  const month = anchor.getMonth()
+  const first = new Date(year, month, 1)
+  const startOffset = (first.getDay() + 6) % 7 // lunes = 0
+  const start = new Date(year, month, 1 - startOffset)
+  const cells = []
+  for (let i = 0; i < 42; i++) {
+    const d = new Date(start)
+    d.setDate(start.getDate() + i)
+    const isoDate = toIsoDateLocal(d)
+    const dayTurnos = turnosFiltradosBase.value.filter((t) => t.fecha === isoDate)
+    cells.push({
+      isoDate,
+      dateNumber: d.getDate(),
+      inMonth: d.getMonth() === month,
+      isSelected: isoDate === selectedDate.value,
+      isToday: isoDate === todayIsoLocal(),
+      count: dayTurnos.length,
+    })
+  }
+  return cells
+})
+
+const monthTitle = computed(() => {
+  const d = parseIsoDateLocal(selectedDate.value)
+  const str = d.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })
+  return str.charAt(0).toUpperCase() + str.slice(1)
+})
+
+const hasActiveSearch = computed(
+  () =>
+    Boolean(
+      filterPaciente.value.trim() ||
+        filterEspecialidad.value ||
+        filterMedico.value ||
+        filterTurnoHorario.value !== 'todos',
+    ),
+)
+
+const turnosBusqueda = computed(() => {
+  if (!hasActiveSearch.value) return []
+  if (viewMode.value === 'dia') return turnosDelDia.value
+  if (viewMode.value === 'semana') {
+    const days = new Set(weekDays.value.map((d) => d.isoDate))
+    return turnosFiltradosBase.value.filter((t) => days.has(t.fecha))
+  }
+  const month = selectedDate.value.slice(0, 7)
+  return turnosFiltradosBase.value.filter((t) => t.fecha.startsWith(month))
 })
 
 const waitlistDelDia = computed(() =>
@@ -103,6 +202,11 @@ const waitlistDelDia = computed(() =>
 
 const slotTurno = (medicoId: string, hora: string) =>
   turnosDelDia.value.find((t) => String(t.medicoId) === medicoId && t.hora === hora)
+
+const selectCalendarDay = (isoDate: string) => {
+  selectedDate.value = isoDate
+  viewMode.value = 'dia'
+}
 
 const estadoLabel = (turno: Turno) => {
   if (turno.statusApi === 'en_sala_de_espera') return 'En sala de espera'
@@ -162,32 +266,30 @@ watch(selectedDate, () => {
 })
 
 const prevDate = () => {
-  const current = new Date(selectedDate.value)
-  current.setDate(current.getDate() - 1)
-  selectedDate.value = current.toISOString().substring(0, 10)
+  if (viewMode.value === 'semana') {
+    selectedDate.value = addDaysIso(selectedDate.value, -7)
+  } else if (viewMode.value === 'mes') {
+    selectedDate.value = addMonthsIso(selectedDate.value, -1)
+  } else {
+    selectedDate.value = addDaysIso(selectedDate.value, -1)
+  }
 }
 
 const nextDate = () => {
-  const current = new Date(selectedDate.value)
-  current.setDate(current.getDate() + 1)
-  selectedDate.value = current.toISOString().substring(0, 10)
+  if (viewMode.value === 'semana') {
+    selectedDate.value = addDaysIso(selectedDate.value, 7)
+  } else if (viewMode.value === 'mes') {
+    selectedDate.value = addMonthsIso(selectedDate.value, 1)
+  } else {
+    selectedDate.value = addDaysIso(selectedDate.value, 1)
+  }
 }
 
 const setToday = () => {
-  selectedDate.value = new Date().toISOString().substring(0, 10)
+  selectedDate.value = todayIsoLocal()
 }
 
-const formattedDisplayDate = computed(() => {
-  if (!selectedDate.value) return ''
-  const parts = selectedDate.value.split('-').map(Number)
-  const d = new Date(parts[0] ?? 2026, (parts[1] ?? 1) - 1, parts[2] ?? 1)
-  return d.toLocaleDateString('es-ES', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  })
-})
+const formattedDisplayDate = computed(() => formatDisplayDate(selectedDate.value))
 
 const openAssignModal = (slotTime?: string, medicoId?: string) => {
   turnoForm.value = {
@@ -430,119 +532,267 @@ const resetFilters = () => {
       </div>
     </div>
 
+    <div v-if="hasActiveSearch" class="hospital-card mb-4">
+      <div class="hospital-card-header">
+        <div class="hospital-card-title">
+          <i class="bi bi-search text-success"></i>
+          <span>Resultados del filtro</span>
+        </div>
+        <span class="text-muted small">{{ turnosBusqueda.length }} turno(s)</span>
+      </div>
+      <div class="hospital-card-body p-0">
+        <div class="hospital-table-wrapper">
+          <table class="hospital-table mb-0">
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Hora</th>
+                <th>Paciente</th>
+                <th>Médico</th>
+                <th>Especialidad</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="t in turnosBusqueda"
+                :key="t.id"
+                role="button"
+                @click="openTurnoDetail(t)"
+              >
+                <td>{{ t.fecha }}</td>
+                <td>{{ t.hora }}</td>
+                <td class="fw-semibold">{{ t.paciente }}</td>
+                <td>{{ t.medico }}</td>
+                <td>{{ t.especialidad }}</td>
+                <td>
+                  <span :class="estadoBadgeClass(t)">{{ estadoLabel(t) }}</span>
+                </td>
+              </tr>
+              <tr v-if="turnosBusqueda.length === 0">
+                <td colspan="6" class="p-0">
+                  <EmptyState
+                    icon="bi-search"
+                    title="Sin turnos para ese filtro"
+                    description="Probá otro paciente, médico, especialidad o franja."
+                    compact
+                  />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
     <div class="row g-4">
       <div :class="selectedTurno ? 'col-12 col-xl-8' : 'col-12'">
-        <div class="hospital-card">
-          <div class="hospital-card-header">
-            <div class="hospital-card-title">
-              <i class="bi bi-grid-3x3 text-success"></i>
-              <span>Grilla de turnos y disponibilidad</span>
+        <template v-if="viewMode === 'dia'">
+          <div class="hospital-card">
+            <div class="hospital-card-header">
+              <div class="hospital-card-title">
+                <i class="bi bi-grid-3x3 text-success"></i>
+                <span>Grilla de turnos · {{ formattedDisplayDate }}</span>
+              </div>
+              <span class="text-muted small">
+                Clic en vacío para asignar · clic en ocupado para gestionar
+              </span>
             </div>
-            <span class="text-muted small">
-              Clic en vacío para asignar · clic en ocupado para gestionar
-            </span>
-          </div>
-          <div class="hospital-card-body p-0">
-            <div class="schedule-grid-container border-0 rounded-0">
-              <table class="schedule-grid-table">
-                <thead>
-                  <tr>
-                    <th class="schedule-time-col">Hora</th>
-                    <th
-                      v-for="col in preparedDoctorColumns"
-                      :key="col.id"
-                      class="schedule-doctor-header"
-                    >
-                      <div class="schedule-doctor-name">
-                        <span>{{ col.name }}</span>
-                      </div>
-                      <div class="schedule-doctor-spec">
-                        <span>{{ col.specialty }}</span>
-                      </div>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-if="preparedDoctorColumns.length === 0">
-                    <td colspan="2" class="text-center text-muted py-4">
-                      No hay médicos para mostrar con los filtros actuales.
-                    </td>
-                  </tr>
-                  <tr v-for="time in gridTimeSlots" :key="time">
-                    <td class="schedule-time-col">{{ time }}</td>
-                    <td
-                      v-for="col in preparedDoctorColumns"
-                      :key="col.id"
-                      class="schedule-slot-cell"
-                      :class="{ 'bg-success-subtle': slotTurno(col.id, time) && String(selectedTurno?.id) === String(slotTurno(col.id, time)?.id) }"
-                      :title="slotTurno(col.id, time)?.paciente || 'Hacé clic para asignar turno'"
-                      @click="
-                        slotTurno(col.id, time)
-                          ? openTurnoDetail(slotTurno(col.id, time)!)
-                          : openAssignModal(time, col.id)
-                      "
-                    >
-                      <span v-if="slotTurno(col.id, time)" class="fw-semibold small d-block">
-                        {{ slotTurno(col.id, time)?.paciente }}
-                      </span>
-                      <span
-                        v-if="slotTurno(col.id, time)"
-                        class="small text-muted"
+            <div class="hospital-card-body p-0">
+              <div class="schedule-grid-container border-0 rounded-0">
+                <table class="schedule-grid-table">
+                  <thead>
+                    <tr>
+                      <th class="schedule-time-col">Hora</th>
+                      <th
+                        v-for="col in preparedDoctorColumns"
+                        :key="col.id"
+                        class="schedule-doctor-header"
                       >
-                        {{ estadoLabel(slotTurno(col.id, time)!) }}
-                      </span>
-                      <span v-else class="schedule-slot-empty-label">Disponible</span>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+                        <div class="schedule-doctor-name">
+                          <span>{{ col.name }}</span>
+                        </div>
+                        <div class="schedule-doctor-spec">
+                          <span>{{ col.specialty }}</span>
+                        </div>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-if="preparedDoctorColumns.length === 0">
+                      <td colspan="2" class="text-center text-muted py-4">
+                        No hay médicos para mostrar con los filtros actuales.
+                      </td>
+                    </tr>
+                    <tr v-for="time in gridTimeSlots" :key="time">
+                      <td class="schedule-time-col">{{ time }}</td>
+                      <td
+                        v-for="col in preparedDoctorColumns"
+                        :key="col.id"
+                        class="schedule-slot-cell"
+                        :class="{ 'bg-success-subtle': slotTurno(col.id, time) && String(selectedTurno?.id) === String(slotTurno(col.id, time)?.id) }"
+                        :title="slotTurno(col.id, time)?.paciente || 'Hacé clic para asignar turno'"
+                        @click="
+                          slotTurno(col.id, time)
+                            ? openTurnoDetail(slotTurno(col.id, time)!)
+                            : openAssignModal(time, col.id)
+                        "
+                      >
+                        <span v-if="slotTurno(col.id, time)" class="fw-semibold small d-block">
+                          {{ slotTurno(col.id, time)?.paciente }}
+                        </span>
+                        <span
+                          v-if="slotTurno(col.id, time)"
+                          class="small text-muted"
+                        >
+                          {{ estadoLabel(slotTurno(col.id, time)!) }}
+                        </span>
+                        <span v-else class="schedule-slot-empty-label">Disponible</span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div class="hospital-card mt-4">
-          <div class="hospital-card-header">
-            <div class="hospital-card-title">
-              <i class="bi bi-hourglass-split text-success"></i>
-              <span>Lista de espera · {{ selectedDate }}</span>
+          <div class="hospital-card mt-4">
+            <div class="hospital-card-header">
+              <div class="hospital-card-title">
+                <i class="bi bi-hourglass-split text-success"></i>
+                <span>Lista de espera · {{ selectedDate }}</span>
+              </div>
+              <span class="text-muted small">{{ waitlistDelDia.length }} en cola</span>
             </div>
-            <span class="text-muted small">{{ waitlistDelDia.length }} en cola</span>
-          </div>
-          <div class="hospital-card-body p-0">
-            <div class="hospital-table-wrapper">
-              <table class="hospital-table mb-0">
-                <thead>
-                  <tr>
-                    <th>Paciente</th>
-                    <th>DNI</th>
-                    <th>Médico</th>
-                    <th>Ingreso a la cola</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="item in waitlistDelDia" :key="item.id">
-                    <td class="fw-semibold">{{ item.pacienteNombre }}</td>
-                    <td>{{ item.pacienteDni || '—' }}</td>
-                    <td>{{ item.medicoNombre }}</td>
-                    <td class="text-muted small">
-                      {{ new Date(item.createdAt).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) }}
-                    </td>
-                  </tr>
-                  <tr v-if="waitlistDelDia.length === 0">
-                    <td colspan="4" class="p-0">
-                      <EmptyState
-                        icon="bi-hourglass"
-                        title="Sin pacientes en espera"
-                        description="Si un horario ya está tomado, el alta del turno deja al paciente en esta lista."
-                        compact
-                      />
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+            <div class="hospital-card-body p-0">
+              <div class="hospital-table-wrapper">
+                <table class="hospital-table mb-0">
+                  <thead>
+                    <tr>
+                      <th>Paciente</th>
+                      <th>DNI</th>
+                      <th>Médico</th>
+                      <th>Ingreso a la cola</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="item in waitlistDelDia" :key="item.id">
+                      <td class="fw-semibold">{{ item.pacienteNombre }}</td>
+                      <td>{{ item.pacienteDni || '—' }}</td>
+                      <td>{{ item.medicoNombre }}</td>
+                      <td class="text-muted small">
+                        {{ new Date(item.createdAt).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) }}
+                      </td>
+                    </tr>
+                    <tr v-if="waitlistDelDia.length === 0">
+                      <td colspan="4" class="p-0">
+                        <EmptyState
+                          icon="bi-hourglass"
+                          title="Sin pacientes en espera"
+                          description="Si un horario ya está tomado, el alta del turno deja al paciente en esta lista."
+                          compact
+                        />
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
-        </div>
+        </template>
+
+        <template v-else-if="viewMode === 'semana'">
+          <div class="hospital-card">
+            <div class="hospital-card-header">
+              <div class="hospital-card-title">
+                <i class="bi bi-calendar-week text-success"></i>
+                <span>Agenda semanal</span>
+              </div>
+              <span class="text-muted small">
+                {{ weekDays[0]?.isoDate }} → {{ weekDays[5]?.isoDate }}
+              </span>
+            </div>
+            <div class="hospital-card-body p-3">
+              <div class="row g-2">
+                <div v-for="day in weekDays" :key="day.isoDate" class="col-12 col-md-6 col-xl-4">
+                  <button
+                    type="button"
+                    class="w-100 text-start border rounded p-3 bg-white"
+                    :class="{
+                      'border-success bg-success-subtle': day.isSelected,
+                      'border-primary': day.isToday && !day.isSelected,
+                    }"
+                    @click="selectCalendarDay(day.isoDate)"
+                  >
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                      <div>
+                        <div class="fw-semibold">{{ day.name }}</div>
+                        <div class="small text-muted">{{ day.isoDate }}</div>
+                      </div>
+                      <span class="badge" :class="day.count ? 'bg-success' : 'bg-light text-muted border'">
+                        {{ day.count }} turno{{ day.count === 1 ? '' : 's' }}
+                      </span>
+                    </div>
+                    <ul v-if="day.turnos.length" class="list-unstyled mb-0 small">
+                      <li v-for="t in day.turnos.slice(0, 4)" :key="t.id" class="mb-1">
+                        <span class="fw-semibold">{{ t.hora }}</span>
+                        · {{ t.paciente }}
+                        <span class="text-muted">({{ t.medico }})</span>
+                      </li>
+                      <li v-if="day.turnos.length > 4" class="text-muted">
+                        +{{ day.turnos.length - 4 }} más…
+                      </li>
+                    </ul>
+                    <div v-else class="small text-muted">Sin turnos</div>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </template>
+
+        <template v-else>
+          <div class="hospital-card">
+            <div class="hospital-card-header">
+              <div class="hospital-card-title">
+                <i class="bi bi-calendar-month text-success"></i>
+                <span>{{ monthTitle }}</span>
+              </div>
+              <span class="text-muted small">Clic en un día para abrir la grilla</span>
+            </div>
+            <div class="hospital-card-body p-3">
+              <div
+                class="small fw-semibold text-muted mb-2 text-center"
+                style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.35rem;"
+              >
+                <div>Lun</div><div>Mar</div><div>Mié</div><div>Jue</div><div>Vie</div><div>Sáb</div><div>Dom</div>
+              </div>
+              <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.35rem;">
+                <button
+                  v-for="cell in monthCells"
+                  :key="cell.isoDate"
+                  type="button"
+                  class="border rounded py-2 px-1"
+                  :class="{
+                    'bg-success-subtle border-success': cell.isSelected,
+                    'bg-white': cell.inMonth && !cell.isSelected,
+                    'bg-light text-muted': !cell.inMonth,
+                    'border-primary': cell.isToday && !cell.isSelected,
+                  }"
+                  @click="selectCalendarDay(cell.isoDate)"
+                >
+                  <div class="fw-semibold">{{ cell.dateNumber }}</div>
+                  <div
+                    class="small"
+                    :class="cell.count ? 'text-success fw-semibold' : 'text-muted'"
+                  >
+                    {{ cell.count || '—' }}
+                  </div>
+                </button>
+              </div>
+            </div>
+          </div>
+        </template>
       </div>
 
       <div v-if="selectedTurno" class="col-12 col-xl-4">
