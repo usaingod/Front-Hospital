@@ -27,7 +27,7 @@ const statusToUi = (status: ApiAppointmentStatus): TurnoEstado => {
   return 'pendiente'
 }
 
-/** Prefiere la sede del profesional; si no, "Sede Central"; si no, la primera. */
+
 function resolveBranchId(
   branches: ApiBranch[],
   preferredIds?: string[] | null,

@@ -8,17 +8,7 @@ import type { Usuario, CreateUsuarioDTO, RolUsuario } from '@/types/usuario'
 import { ApiError } from '@/services/api'
 import { usuariosService } from '@/services/usuariosService'
 
-/**
- * Vista: Gestión de Usuarios del Sistema (UsersView.vue)
- * Criterios 1, 2, 3, 5, 8, 9:
- * - Control de cuentas y asignación de roles (Administrador / Secretaría).
- * - Indicadores clave con guión neutral sin métricas inventadas.
- * - Tabla con encabezados completos y estado vacío estandarizado.
- * - Filtros por término de búsqueda, rol y estado.
- * - Modal visual para consultar, crear y editar usuarios.
- * - Campos de contraseña con tipo seguro (type="password") y alternador de visibilidad.
- * - Sin autenticación real ni almacenamiento de contraseñas.
- */
+
 
 const usuarios = ref<Usuario[]>([])
 
@@ -63,21 +53,21 @@ const statCards = computed(() => [
   },
 ])
 
-// Filtros y búsqueda
+
 const searchQuery = ref('')
 const filterRol = ref('')
 const filterEstado = ref('')
 
-// Estado del Modal de Usuario
+
 const isModalOpen = ref(false)
 const modalMode = ref<'crear' | 'editar' | 'consultar'>('crear')
 const selectedUser = ref<Usuario | null>(null)
 
-// Visibilidad de contraseñas (UX)
+
 const showPassword = ref(false)
 const showConfirmPassword = ref(false)
 
-// Formulario de usuario (campos vacíos con placeholders descriptivos)
+
 const form = ref<CreateUsuarioDTO>({
   nombre: '',
   apellido: '',
@@ -88,7 +78,7 @@ const form = ref<CreateUsuarioDTO>({
   estado: 'activo',
 })
 
-// Modal para Crear
+
 const openCreateModal = () => {
   modalMode.value = 'crear'
   selectedUser.value = null
@@ -106,7 +96,7 @@ const openCreateModal = () => {
   isModalOpen.value = true
 }
 
-// Modal para Consultar
+
 const openViewModal = (user: Usuario) => {
   modalMode.value = 'consultar'
   selectedUser.value = user
@@ -122,7 +112,7 @@ const openViewModal = (user: Usuario) => {
   isModalOpen.value = true
 }
 
-// Modal para Editar
+
 const openEditModal = (user: Usuario) => {
   modalMode.value = 'editar'
   selectedUser.value = user
@@ -140,7 +130,7 @@ const openEditModal = (user: Usuario) => {
   isModalOpen.value = true
 }
 
-// Acción visual para Eliminar
+
 const handleDelete = async (user: Usuario) => {
   if (!confirm(`¿Desea deshabilitar la cuenta del usuario "${user.nombre} ${user.apellido}"?`)) return
   try {
@@ -177,7 +167,7 @@ const handleSave = async () => {
   }
 }
 
-// Filtrado reactivo de usuarios
+
 const filteredUsers = computed(() => {
   return usuarios.value.filter((item) => {
     const q = searchQuery.value.toLowerCase().trim()
@@ -197,7 +187,7 @@ const filteredUsers = computed(() => {
 
 <template>
   <div class="users-view">
-    <!-- Encabezado con acción principal -->
+
     <PageHeader
       title="Gestión de Usuarios"
       description="Administración de cuentas de acceso, roles del sistema hospitalario y estados de habilitación."
@@ -214,7 +204,7 @@ const filteredUsers = computed(() => {
       </template>
     </PageHeader>
 
-    <!-- Indicadores estadísticos sin datos ficticios -->
+
     <div class="row g-3 mb-4">
       <div
         v-for="card in statCards"
@@ -231,10 +221,10 @@ const filteredUsers = computed(() => {
       </div>
     </div>
 
-    <!-- Barra de filtros y búsqueda -->
+
     <div class="hospital-filter-bar">
       <div class="row g-3 align-items-center">
-        <!-- Campo de búsqueda -->
+
         <div class="col-12 col-md-5 col-lg-4">
           <label class="form-label" for="user-search">Buscar usuario</label>
           <div class="position-relative">
@@ -249,7 +239,7 @@ const filteredUsers = computed(() => {
           </div>
         </div>
 
-        <!-- Filtro por rol -->
+
         <div class="col-12 col-md-4 col-lg-3">
           <label class="form-label" for="user-role-filter">Rol asignado</label>
           <select
@@ -265,7 +255,7 @@ const filteredUsers = computed(() => {
           </select>
         </div>
 
-        <!-- Filtro por estado -->
+
         <div class="col-12 col-md-3 col-lg-3">
           <label class="form-label" for="user-status-filter">Estado</label>
           <select
@@ -279,7 +269,7 @@ const filteredUsers = computed(() => {
           </select>
         </div>
 
-        <!-- Botón para limpiar filtros -->
+
         <div class="col-12 col-md-12 col-lg-2 d-flex align-items-end">
           <button
             type="button"
@@ -294,7 +284,7 @@ const filteredUsers = computed(() => {
       </div>
     </div>
 
-    <!-- Contenedor de la Tabla -->
+
     <div class="hospital-card">
       <div class="hospital-card-header">
         <h2 class="hospital-card-title">
@@ -319,7 +309,7 @@ const filteredUsers = computed(() => {
               </tr>
             </thead>
             <tbody>
-              <!-- Filas cuando existan usuarios -->
+
               <tr
                 v-for="user in filteredUsers"
                 :key="user.id"
@@ -402,7 +392,7 @@ const filteredUsers = computed(() => {
                 </td>
               </tr>
 
-              <!-- Estado vacío discreto dentro de la tabla -->
+
               <tr v-if="filteredUsers.length === 0">
                 <td colspan="5" class="p-0">
                   <EmptyState
@@ -429,7 +419,7 @@ const filteredUsers = computed(() => {
       </div>
     </div>
 
-    <!-- Modal para Crear / Editar / Consultar Usuario -->
+
     <BaseModal
       :is-open="isModalOpen"
       :title="
@@ -446,7 +436,7 @@ const filteredUsers = computed(() => {
     >
       <form @submit.prevent="handleSave">
         <div class="row g-3">
-          <!-- Nombre -->
+
           <div class="col-12 col-md-6">
             <label class="form-label" for="user-nombre">
               Nombre <span class="text-danger">*</span>
@@ -462,7 +452,7 @@ const filteredUsers = computed(() => {
             />
           </div>
 
-          <!-- Apellido -->
+
           <div class="col-12 col-md-6">
             <label class="form-label" for="user-apellido">
               Apellido <span class="text-danger">*</span>
@@ -478,7 +468,7 @@ const filteredUsers = computed(() => {
             />
           </div>
 
-          <!-- Email -->
+
           <div class="col-12">
             <label class="form-label" for="user-email">
               Correo electrónico institucional <span class="text-danger">*</span>
@@ -494,7 +484,7 @@ const filteredUsers = computed(() => {
             />
           </div>
 
-          <!-- Rol -->
+
           <div class="col-12 col-md-6">
             <label class="form-label" for="user-role">
               Rol del sistema <span class="text-danger">*</span>
@@ -513,7 +503,7 @@ const filteredUsers = computed(() => {
             </select>
           </div>
 
-          <!-- Estado -->
+
           <div class="col-12 col-md-6">
             <label class="form-label" for="user-state">
               Estado de la cuenta <span class="text-danger">*</span>
@@ -530,7 +520,7 @@ const filteredUsers = computed(() => {
             </select>
           </div>
 
-          <!-- Contraseña (requerida al alta) -->
+
           <div v-if="modalMode !== 'consultar'" class="col-12 col-md-6">
             <label class="form-label" for="user-password">
               Contraseña <span v-if="modalMode === 'crear'" class="text-danger">*</span>
@@ -555,7 +545,7 @@ const filteredUsers = computed(() => {
             </div>
           </div>
 
-          <!-- Confirmación de Contraseña -->
+
           <div v-if="modalMode !== 'consultar'" class="col-12 col-md-6">
             <label class="form-label" for="user-confirm-password">
               Confirmar contraseña <span v-if="modalMode === 'crear'" class="text-danger">*</span>

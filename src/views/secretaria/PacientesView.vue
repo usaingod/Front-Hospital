@@ -11,41 +11,23 @@ import {
   calcularSaldoTotal,
 } from '@/types/paciente'
 import { pacientesService } from '@/services/pacientesService'
+import { usePacientesListado } from '@/composables/usePacientesListado'
 
-/**
- * Vista de Pacientes (Secretaría)
- * Criterios 1, 2, 3, 5, 7, 8, 9, 10:
- * - Padrón general de pacientes preparado para recibir datos del backend.
- * - Formulario de alta/edición con campo unificado de Saldo pendiente ($).
- *   (En el backend se compone de appointmentBalance + supplyBalance).
- * - Ficha de detalle de paciente con apartado «Estado de cuenta»:
- *   * Saldo pendiente total.
- *   * Indicador visual de deuda pendiente vs. «Al día».
- *   * Botón «Marcar como pagado» con diálogo de confirmación (sin ingreso manual de monto ni pagos parciales).
- * - Componentes reutilizables: PageHeader, StatCard, EmptyState, BaseModal.
- * - Sin registros ficticios, mocks ni simulaciones engañosas de persistencia.
- */
 
-const pacientes = ref<Paciente[]>([])
-const loadError = ref('')
-const isLoading = ref(false)
 
-const loadPacientes = async () => {
-  isLoading.value = true
-  loadError.value = ''
-  try {
-    pacientes.value = await pacientesService.getPacientes()
-  } catch (err) {
-    loadError.value =
-      err instanceof ApiError ? err.message : 'No se pudieron cargar los pacientes'
-  } finally {
-    isLoading.value = false
-  }
-}
+const {
+  pacientes,
+  loading: isLoading,
+  error: loadError,
+  loadPacientes,
+  searchQuery,
+  filterEstado,
+  pacientesFiltrados,
+} = usePacientesListado()
 
 onMounted(loadPacientes)
 
-// Indicadores estadísticos sin datos precargados (muestran guion según especificación)
+
 const statCards = [
   {
     label: 'Total de pacientes',
@@ -77,35 +59,20 @@ const statCards = [
   },
 ]
 
-// Filtros de búsqueda
-const searchQuery = ref('')
 const filterObraSocial = ref('')
-const filterEstado = ref('')
 
-// Opciones dinámicas de obras sociales derivadas de los pacientes reales
+
 const obrasSocialesDisponibles = computed<string[]>(() => {
   const set = new Set(pacientes.value.map((p) => p.obraSocial).filter(Boolean))
   return Array.from(set).sort()
 })
 
-// Filtrado computado reactivo
+
 const filteredPacientes = computed(() => {
-  return pacientes.value.filter((p) => {
-    const q = searchQuery.value.trim().toLowerCase()
-    const fullName = `${p.nombre} ${p.apellido}`.toLowerCase()
-    const matchesQuery =
-      !q ||
-      fullName.includes(q) ||
-      p.dni.includes(q) ||
-      p.telefono.toLowerCase().includes(q)
-
-    const matchesObraSocial =
-      !filterObraSocial.value || p.obraSocial === filterObraSocial.value
-
-    const matchesEstado = !filterEstado.value || p.estado === filterEstado.value
-
-    return matchesQuery && matchesObraSocial && matchesEstado
-  })
+  if (!filterObraSocial.value) return pacientesFiltrados.value
+  return pacientesFiltrados.value.filter(
+    (p) => p.obraSocial === filterObraSocial.value,
+  )
 })
 
 const resetFilters = () => {
@@ -114,14 +81,12 @@ const resetFilters = () => {
   filterEstado.value = ''
 }
 
-// ============================================================
-// MODAL 1: REGISTRAR O EDITAR PACIENTE
-// ============================================================
+
 const isPatientModalOpen = ref(false)
 const modalMode = ref<'crear' | 'editar'>('crear')
 const editingPatientId = ref<number | string | null>(null)
 
-// Formulario reactivo con campo unificado de Saldo pendiente ($)
+
 const patientForm = ref({
   nombre: '',
   apellido: '',
@@ -215,9 +180,7 @@ const handlePatientSubmit = async () => {
   }
 }
 
-// ============================================================
-// MODAL 2: DETALLE DEL PACIENTE (INFORMACIÓN Y ESTADO DE CUENTA)
-// ============================================================
+
 const isDetailModalOpen = ref(false)
 const selectedPatient = ref<Paciente | null>(null)
 
@@ -231,19 +194,17 @@ const closeDetailModal = () => {
   selectedPatient.value = null
 }
 
-// Saldo total computado del paciente actualmente seleccionado
+
 const saldoTotalSeleccionado = computed<number>(() => {
   return calcularSaldoTotal(selectedPatient.value || undefined)
 })
 
-// Determina si el paciente tiene deuda pendiente (> 0)
+
 const tieneSaldoPendiente = computed<boolean>(() => {
   return saldoTotalSeleccionado.value > 0
 })
 
-// ============================================================
-// MODAL 3: CONFIRMACIÓN DE PAGO TOTAL («MARCAR COMO PAGADO»)
-// ============================================================
+
 const isConfirmPaymentModalOpen = ref(false)
 const isProcessingPayment = ref(false)
 
@@ -278,7 +239,7 @@ const handleConfirmPayment = async () => {
   }
 }
 
-// Formateador visual de moneda en pesos argentinos
+
 const formatCurrency = (val: number = 0): string => {
   return new Intl.NumberFormat('es-AR', {
     style: 'currency',
@@ -291,7 +252,7 @@ const formatCurrency = (val: number = 0): string => {
 
 <template>
   <div>
-    <!-- Encabezado de la página -->
+
     <PageHeader
       title="Pacientes"
       description="Padrón general de pacientes, consulta de fichas personales, coberturas médicas y estado de cuenta."
@@ -307,7 +268,7 @@ const formatCurrency = (val: number = 0): string => {
       </button>
     </PageHeader>
 
-    <!-- Indicadores Estadísticos Reutilizables -->
+
     <div class="row g-3 mb-4">
       <div
         v-for="card in statCards"
@@ -324,7 +285,7 @@ const formatCurrency = (val: number = 0): string => {
       </div>
     </div>
 
-    <!-- Barra de búsqueda y filtros visuales -->
+
     <div class="hospital-filter-bar mb-4">
       <div class="row g-2 align-items-end">
         <div class="col-12 col-md-5">
@@ -396,7 +357,7 @@ const formatCurrency = (val: number = 0): string => {
       </div>
     </div>
 
-    <!-- Tabla de Pacientes con directivas v-if / v-else / v-for -->
+
     <div class="hospital-card mb-0">
       <div class="hospital-card-header">
         <div class="hospital-card-title">
@@ -422,7 +383,7 @@ const formatCurrency = (val: number = 0): string => {
               </tr>
             </thead>
             <tbody>
-              <!-- v-if para listar pacientes cuando se incorpore el backend -->
+
               <template v-if="filteredPacientes.length > 0">
                 <tr v-for="paciente in filteredPacientes" :key="paciente.id">
                   <td>
@@ -438,7 +399,7 @@ const formatCurrency = (val: number = 0): string => {
                     </span>
                   </td>
                   <td>
-                    <!-- Saldo pendiente total unificado -->
+
                     <span
                       v-if="calcularSaldoTotal(paciente) > 0"
                       class="badge bg-danger-subtle text-danger border border-danger-subtle d-inline-flex align-items-center gap-1"
@@ -458,7 +419,7 @@ const formatCurrency = (val: number = 0): string => {
                   </td>
                   <td class="text-center">
                     <div class="d-inline-flex gap-1">
-                      <!-- Ver ficha y estado de cuenta -->
+
                       <button
                         type="button"
                         class="btn-action-icon"
@@ -469,7 +430,7 @@ const formatCurrency = (val: number = 0): string => {
                         <i class="bi bi-eye"></i>
                       </button>
 
-                      <!-- Editar paciente -->
+
                       <button
                         type="button"
                         class="btn-action-icon"
@@ -484,7 +445,7 @@ const formatCurrency = (val: number = 0): string => {
                 </tr>
               </template>
 
-              <!-- v-else para estado vacío estandarizado -->
+
               <tr v-else>
                 <td colspan="6" class="p-0">
                   <EmptyState
@@ -511,9 +472,7 @@ const formatCurrency = (val: number = 0): string => {
       </div>
     </div>
 
-    <!-- ======================================================
-         MODAL 1: REGISTRAR O EDITAR PACIENTE
-    ====================================================== -->
+
     <BaseModal
       :is-open="isPatientModalOpen"
       :title="modalMode === 'crear' ? 'Registrar Nuevo Paciente' : 'Editar Paciente'"
@@ -522,7 +481,7 @@ const formatCurrency = (val: number = 0): string => {
       @close="closePatientModal"
     >
       <form id="form-paciente" novalidate @submit.prevent="handlePatientSubmit">
-        <!-- Campos requeridos: Nombre, Apellido, DNI, Fecha Nacimiento -->
+
         <div class="row g-3 mb-3">
           <div class="col-12 col-md-6">
             <label for="form-nombre" class="form-label">
@@ -574,7 +533,7 @@ const formatCurrency = (val: number = 0): string => {
           </div>
         </div>
 
-        <!-- Teléfono, Email, Dirección -->
+
         <div class="row g-3 mb-3">
           <div class="col-12 col-md-6">
             <label for="form-telefono" class="form-label">Teléfono</label>
@@ -608,7 +567,7 @@ const formatCurrency = (val: number = 0): string => {
           </div>
         </div>
 
-        <!-- Cobertura médica: Obra Social y Número de Afiliado -->
+
         <div class="row g-3 mb-3">
           <div class="col-12 col-md-6">
             <label for="form-obra-social" class="form-label">Obra social</label>
@@ -632,7 +591,7 @@ const formatCurrency = (val: number = 0): string => {
           </div>
         </div>
 
-        <!-- Apartado: Saldo pendiente ($) -->
+
         <div class="row g-3 mb-3">
           <div class="col-12 col-md-6">
             <label for="form-saldo" class="form-label fw-bold text-dark">
@@ -656,7 +615,7 @@ const formatCurrency = (val: number = 0): string => {
           </div>
         </div>
 
-        <!-- Observaciones -->
+
         <div class="mb-2">
           <label for="form-observaciones" class="form-label">Observaciones</label>
           <textarea
@@ -688,9 +647,7 @@ const formatCurrency = (val: number = 0): string => {
       </template>
     </BaseModal>
 
-    <!-- ======================================================
-         MODAL 2: DETALLE DEL PACIENTE Y ESTADO DE CUENTA
-    ====================================================== -->
+
     <BaseModal
       :is-open="isDetailModalOpen"
       title="Ficha del Paciente"
@@ -700,7 +657,7 @@ const formatCurrency = (val: number = 0): string => {
       @close="closeDetailModal"
     >
       <div v-if="selectedPatient" class="p-1">
-        <!-- Encabezado con avatar e identificación -->
+
         <div class="d-flex align-items-center gap-3 p-3 border rounded bg-light mb-4">
           <div
             class="hospital-avatar"
@@ -730,9 +687,7 @@ const formatCurrency = (val: number = 0): string => {
           </div>
         </div>
 
-        <!-- ======================================================
-             NUEVO APARTADO: ESTADO DE CUENTA
-        ====================================================== -->
+
         <div class="card border mb-4">
           <div class="card-header bg-light py-2 px-3 d-flex align-items-center justify-content-between">
             <div class="d-flex align-items-center gap-2">
@@ -741,7 +696,7 @@ const formatCurrency = (val: number = 0): string => {
                 Estado de cuenta
               </span>
             </div>
-            <!-- Indicador visual según saldo -->
+
             <span
               v-if="tieneSaldoPendiente"
               class="badge bg-danger-subtle text-danger border border-danger-subtle d-inline-flex align-items-center gap-1 px-2 py-1"
@@ -760,7 +715,7 @@ const formatCurrency = (val: number = 0): string => {
 
           <div class="card-body p-3">
             <div class="row g-3 align-items-center">
-              <!-- Saldo pendiente total -->
+
               <div class="col-12 col-sm-6">
                 <div class="text-muted small mb-1">Saldo pendiente total</div>
                 <div
@@ -779,7 +734,7 @@ const formatCurrency = (val: number = 0): string => {
                 </div>
               </div>
 
-              <!-- Acción: Marcar como pagado (únicamente si tiene saldo > 0) -->
+
               <div class="col-12 col-sm-6 text-sm-end">
                 <div v-if="tieneSaldoPendiente">
                   <button
@@ -804,7 +759,7 @@ const formatCurrency = (val: number = 0): string => {
           </div>
         </div>
 
-        <!-- Datos personales y de contacto -->
+
         <div class="row g-3">
           <div class="col-12 col-sm-6">
             <div class="p-2 border rounded bg-light">
@@ -850,9 +805,7 @@ const formatCurrency = (val: number = 0): string => {
       </template>
     </BaseModal>
 
-    <!-- ======================================================
-         MODAL 3: CONFIRMAR PAGO TOTAL («MARCAR COMO PAGADO»)
-    ====================================================== -->
+
     <BaseModal
       :is-open="isConfirmPaymentModalOpen"
       title="Confirmar Cancelación de Saldo"
@@ -867,7 +820,7 @@ const formatCurrency = (val: number = 0): string => {
           <strong>{{ selectedPatient.nombre }} {{ selectedPatient.apellido }}</strong>?
         </p>
 
-        <!-- Detalle del importe sin posibilidad de ingreso manual ni pago parcial -->
+
         <div class="p-3 border rounded bg-light mb-3 text-center">
           <div class="text-muted small mb-1">Monto total a cancelar</div>
           <div class="fs-2 fw-bold text-success">

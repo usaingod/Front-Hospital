@@ -119,7 +119,7 @@ router.beforeEach(async (to) => {
 
   const authRole = toUiRole(auth.user.role)
   const allowed = (to.meta.roles as UserRole[] | undefined) || []
-  // Admin puede recorrer todos los paneles; el resto solo el suyo.
+
   if (
     allowed.length &&
     authRole !== 'admin' &&

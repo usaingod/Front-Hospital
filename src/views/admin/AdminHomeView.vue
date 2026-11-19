@@ -9,10 +9,7 @@ import { medicosService } from '@/services/medicosService'
 import { usuariosService } from '@/services/usuariosService'
 import { camasService, alasService } from '@/services/camasService'
 
-/**
- * Panel de inicio del administrador: resumen y accesos.
- * La gestión CRUD de especialidades vive en /admin/especialidades.
- */
+
 const router = useRouter()
 
 const counts = ref({

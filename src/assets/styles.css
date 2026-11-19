@@ -2,23 +2,23 @@
 @import 'bootstrap-icons/font/bootstrap-icons.css';
 
 :root {
-  /* Paleta Verde Hospitalario */
+
   --hospital-green-sidebar: #0f3d2e;
   --hospital-green-sidebar-hover: #164f3c;
   --hospital-green-sidebar-active: #1b634c;
   --hospital-green-sidebar-border: #134636;
-  
+
   --hospital-green-primary: #198754;
   --hospital-green-primary-hover: #146c43;
   --hospital-green-primary-active: #0f5132;
-  
+
   --hospital-green-light: #e8f5e9;
   --hospital-green-subtle: #f0fdf4;
   --hospital-green-border: #c3e6cb;
   --hospital-green-badge-bg: #d1e7dd;
   --hospital-green-badge-text: #0f5132;
 
-  /* Paleta Azul Administrador */
+
   --hospital-blue-sidebar: #0b2545;
   --hospital-blue-sidebar-hover: #133a6b;
   --hospital-blue-sidebar-active: #1a4b87;
@@ -34,7 +34,7 @@
   --hospital-blue-badge-bg: #dbeafe;
   --hospital-blue-badge-text: #1e40af;
 
-  /* Paleta Rojo / Bordó Enfermería */
+
   --hospital-red-sidebar: #3b0a0a;
   --hospital-red-sidebar-hover: #5c1111;
   --hospital-red-sidebar-active: #7a1818;
@@ -50,7 +50,7 @@
   --hospital-red-badge-bg: #fee2e2;
   --hospital-red-badge-text: #991b1b;
 
-  /* Paleta Amarillo / Dorado Médico */
+
   --hospital-amber-sidebar: #382904;
   --hospital-amber-sidebar-hover: #4d3806;
   --hospital-amber-sidebar-active: #664a08;
@@ -66,19 +66,19 @@
   --hospital-amber-badge-bg: #fef3c7;
   --hospital-amber-badge-text: #92400e;
 
-  /* Fondos y Neutros */
+
   --hospital-bg: #f8fafc;
   --hospital-card-bg: #ffffff;
   --hospital-border-color: #e2e8f0;
   --hospital-border-subtle: #edf2f7;
-  
-  /* Textos */
+
+
   --hospital-text-main: #1e293b;
   --hospital-text-secondary: #475569;
   --hospital-text-muted: #64748b;
   --hospital-text-light: #94a3b8;
-  
-  /* Tipografía */
+
+
   --hospital-font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 }
 
@@ -91,9 +91,7 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* ==========================================================
-   LAYOUT GENERAL
-   ========================================================== */
+
 .layout-wrapper {
   display: flex;
   min-height: 100vh;
@@ -101,7 +99,7 @@ body {
   background-color: var(--hospital-bg);
 }
 
-/* Sidebar */
+
 .hospital-sidebar {
   width: 260px;
   min-width: 260px;
@@ -155,7 +153,7 @@ body {
   font-weight: 600;
 }
 
-/* Sidebar Navigation */
+
 .hospital-sidebar-nav {
   padding: 1rem 0.85rem;
   flex-grow: 1;
@@ -212,7 +210,7 @@ body {
   color: #6ee7b7;
 }
 
-/* Sidebar Footer & User Profile */
+
 .hospital-sidebar-footer {
   padding: 1rem;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
@@ -282,9 +280,7 @@ body {
   color: #fca5a5;
 }
 
-/* ==========================================================
-   SELECTOR DE PERFIL EN SIDEBAR (Secretaría / Administrador)
-   ========================================================== */
+
 .hospital-profile-selector {
   position: relative;
   margin-bottom: 0.65rem;
@@ -447,9 +443,7 @@ body {
   margin-left: auto;
 }
 
-/* ==========================================================
-   TEMA ADMINISTRADOR (Paleta Azul)
-   ========================================================== */
+
 .hospital-sidebar.theme-admin {
   background-color: var(--hospital-blue-sidebar);
   border-right-color: var(--hospital-blue-sidebar-border);
@@ -491,7 +485,7 @@ body {
   color: #93c5fd;
 }
 
-/* Modificaciones de componentes bajo tema Administrador */
+
 .theme-admin .hospital-avatar-sm {
   background: var(--hospital-blue-primary);
 }
@@ -562,9 +556,7 @@ body {
   background-color: rgba(11, 37, 69, 0.45);
 }
 
-/* ==========================================================
-   TEMA MÉDICO (Paleta Amarilla / Dorada)
-   ========================================================== */
+
 .hospital-sidebar.theme-medico {
   background-color: var(--hospital-amber-sidebar);
   border-right-color: var(--hospital-amber-sidebar-border);
@@ -606,7 +598,7 @@ body {
   color: #fde047;
 }
 
-/* Modificaciones de componentes bajo tema Médico */
+
 .theme-medico .hospital-avatar-sm {
   background: var(--hospital-amber-primary);
 }
@@ -679,7 +671,7 @@ body {
   background-color: rgba(56, 41, 4, 0.45);
 }
 
-/* Pestañas de navegación para Historia Clínica y Detalle de Paciente */
+
 .medico-nav-tabs {
   border-bottom: 2px solid var(--hospital-border-color);
   display: flex;
@@ -720,7 +712,7 @@ body {
   background-color: #ffffff;
 }
 
-/* Grilla horaria de 30 minutos del médico */
+
 .medico-agenda-grid {
   display: flex;
   flex-direction: column;
@@ -768,13 +760,13 @@ body {
   color: var(--hospital-text-muted);
 }
 
-/* Badges de estado en tema médico */
+
 .badge-status.amber {
   background-color: var(--hospital-amber-light);
   color: var(--hospital-amber-badge-text);
 }
 
-/* Tarjeta expandible de especialidades en Admin Inicio */
+
 .specialty-expand-card {
   background-color: #ffffff;
   border: 1px solid var(--hospital-border-color);
@@ -824,7 +816,7 @@ body {
   padding: 1.25rem;
 }
 
-/* Badges de estado generales */
+
 .badge-status {
   display: inline-flex;
   align-items: center;
@@ -860,7 +852,7 @@ body {
   color: #0f5132;
 }
 
-/* Main Layout Area */
+
 .hospital-main-wrapper {
   flex-grow: 1;
   margin-left: 260px;
@@ -870,7 +862,7 @@ body {
   min-height: 100vh;
 }
 
-/* Top Navbar */
+
 .hospital-topbar {
   height: 68px;
   background-color: var(--hospital-card-bg);
@@ -990,7 +982,7 @@ body {
   color: var(--hospital-text-muted);
 }
 
-/* Page Content Container */
+
 .hospital-content {
   padding: 1.75rem;
   flex-grow: 1;
@@ -1019,9 +1011,7 @@ body {
   margin-bottom: 0;
 }
 
-/* ==========================================================
-   CARDS & STATS
-   ========================================================== */
+
 .hospital-card {
   background-color: var(--hospital-card-bg);
   border: 1px solid var(--hospital-border-color);
@@ -1056,7 +1046,7 @@ body {
   padding: 1.25rem;
 }
 
-/* Statistical Cards */
+
 .hospital-stat-card {
   background-color: #ffffff;
   border: 1px solid var(--hospital-border-color);
@@ -1128,9 +1118,7 @@ body {
   margin-top: 0.25rem;
 }
 
-/* ==========================================================
-   BUTTONS
-   ========================================================== */
+
 .btn-hospital-primary {
   background-color: var(--hospital-green-primary);
   border-color: var(--hospital-green-primary);
@@ -1192,7 +1180,7 @@ body {
   color: var(--hospital-green-primary-hover);
 }
 
-/* Action Icon Buttons */
+
 .btn-action-icon {
   width: 32px;
   height: 32px;
@@ -1220,9 +1208,7 @@ body {
   border-color: #fca5a5;
 }
 
-/* ==========================================================
-   TABLES & EMPTY STATES
-   ========================================================== */
+
 .hospital-table-wrapper {
   overflow-x: auto;
   border-radius: 8px;
@@ -1260,7 +1246,7 @@ body {
   border-bottom: none;
 }
 
-/* Empty State Component */
+
 .hospital-empty-state {
   padding: 3rem 1.5rem;
   text-align: center;
@@ -1294,9 +1280,7 @@ body {
   margin: 0 auto;
 }
 
-/* ==========================================================
-   FORM CONTROLS & FILTERS
-   ========================================================== */
+
 .form-label {
   font-size: 0.85rem;
   font-weight: 600;
@@ -1325,7 +1309,7 @@ body {
   font-size: 0.88rem;
 }
 
-/* Filter Bar */
+
 .hospital-filter-bar {
   background-color: #ffffff;
   border: 1px solid var(--hospital-border-color);
@@ -1334,10 +1318,8 @@ body {
   margin-bottom: 1.25rem;
 }
 
-/* ==========================================================
-   CALENDARS & SCHEDULE GRID
-   ========================================================== */
-/* Compact Monthly Calendar */
+
+
 .compact-calendar {
   background-color: #ffffff;
   border-radius: 10px;
@@ -1414,7 +1396,7 @@ body {
   font-weight: 600;
 }
 
-/* Turnos Schedule Grid (Intervalos 30 min) */
+
 .schedule-grid-container {
   overflow-x: auto;
   border: 1px solid var(--hospital-border-color);
@@ -1488,7 +1470,7 @@ body {
   font-style: italic;
 }
 
-/* Badges de leyenda */
+
 .legend-pill {
   display: inline-flex;
   align-items: center;
@@ -1523,9 +1505,7 @@ body {
   border: 1px solid #f87171;
 }
 
-/* ==========================================================
-   MODALS
-   ========================================================== */
+
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -1608,7 +1588,7 @@ body {
   border-bottom-right-radius: 12px;
 }
 
-/* Quick Access Cards in Inicio */
+
 .quick-action-card {
   background-color: #ffffff;
   border: 1px solid var(--hospital-border-color);
@@ -1654,9 +1634,7 @@ body {
   color: var(--hospital-text-muted);
 }
 
-/* ==========================================================
-   TEMA ENFERMERÍA (Paleta Rojo / Bordó)
-   ========================================================== */
+
 .hospital-sidebar.theme-enfermeria {
   background-color: var(--hospital-red-sidebar);
   border-right-color: var(--hospital-red-sidebar-border);
@@ -1698,7 +1676,7 @@ body {
   color: #fca5a5;
 }
 
-/* Modificaciones de componentes bajo tema Enfermería */
+
 .theme-enfermeria .hospital-avatar-sm {
   background: var(--hospital-red-primary);
 }
@@ -1771,7 +1749,7 @@ body {
   background-color: rgba(59, 10, 10, 0.45);
 }
 
-/* Pestañas de navegación para Enfermería */
+
 .enfermeria-nav-tabs {
   border-bottom: 2px solid var(--hospital-border-color);
   display: flex;
@@ -1812,7 +1790,7 @@ body {
   background-color: #ffffff;
 }
 
-/* Badge de estado de cama */
+
 .badge-cama-disponible {
   background-color: #d1e7dd;
   color: #0f5132;
@@ -1849,7 +1827,7 @@ body {
   gap: 0.3rem;
 }
 
-/* Tarjeta visual de cama (distribución de sala) */
+
 .cama-visual-card {
   border-radius: 10px;
   border: 2px solid transparent;
@@ -1921,7 +1899,7 @@ body {
   color: #d97706;
 }
 
-/* Responsive adjustments */
+
 @media (max-width: 991.98px) {
   .hospital-sidebar {
     transform: translateX(-100%);

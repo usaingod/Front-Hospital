@@ -1,7 +1,4 @@
-/**
- * Definiciones de tipos para el dominio de Turnos Médicos.
- * Preparadas para la futura integración con los contratos de API del backend.
- */
+
 
 export type TurnoEstado = 'pendiente' | 'confirmado' | 'cancelado' | 'atendido'
 

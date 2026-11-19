@@ -14,18 +14,7 @@ import { pacientesService } from '@/services/pacientesService'
 import { protocolsService, type Protocol } from '@/services/protocolsService'
 import { api } from '@/services/api'
 
-/**
- * Vista de Internación (Secretaría)
- * Criterios 1, 2, 3, 5, 7, 8, 9:
- * - Consulta general de camas hospitalarias y su estado de ocupación.
- * - Tres estados claramente diferenciados: Disponible (verde), Ocupada (rojo), En limpieza (ámbar).
- * - Búsqueda por número de cama, sala, habitación o paciente ocupante.
- * - Filtros combinados por sala y estado.
- * - Consulta de información de internación del paciente (diagnóstico, médico tratante, ingreso).
- * - Asignación de camas disponibles y registro de ingreso a internación.
- * - Componentes reutilizables: PageHeader, StatCard, EmptyState, BaseModal.
- * - Cumplimiento estricto de no incorporar datos ficticios (estructuras preparadas con estados vacíos).
- */
+
 
 const camas = ref<Cama[]>([])
 const internaciones = ref<Internacion[]>([])
@@ -93,20 +82,20 @@ const statCards = computed(() => [
   },
 ])
 
-// Filtros y búsqueda
+
 const filtros = ref<CamaFilter>({
   query: '',
   sala: '',
   estado: '',
 })
 
-// Opciones de salas derivadas de las camas registradas
+
 const salasDisponibles = computed<string[]>(() => {
   const set = new Set(camas.value.map((c) => c.sala).filter(Boolean))
   return Array.from(set).sort()
 })
 
-// Camas filtradas según búsqueda y filtros reactivos
+
 const camasFiltradas = computed(() => {
   return camas.value.filter((cama) => {
     const q = filtros.value.query?.trim().toLowerCase() || ''
@@ -135,7 +124,7 @@ const limpiarFiltros = () => {
   filtros.value = { query: '', sala: '', estado: '' }
 }
 
-// Helpers visuales para los estados de camas
+
 const getEstadoBadgeClass = (estado: EstadoCama): string => {
   if (estado === 'disponible') return 'badge-cama-disponible'
   if (estado === 'ocupada') return 'badge-cama-ocupada'
@@ -154,16 +143,14 @@ const getEstadoIcon = (estado: EstadoCama): string => {
   return 'bi-stars'
 }
 
-// ============================================================
-// MODAL DE DETALLE DE CAMA E INTERNACIÓN
-// ============================================================
+
 const isDetailModalOpen = ref(false)
 const selectedCama = ref<Cama | null>(null)
 const selectedInternacion = ref<Internacion | null>(null)
 
 const verDetalleCama = (cama: Cama) => {
   selectedCama.value = cama
-  // Buscar internación asociada si la cama está ocupada
+
   selectedInternacion.value =
     internaciones.value.find((i) => i.camaId === cama.id || i.id === cama.internacionId) || null
   cuentaEstadia.value = null
@@ -187,9 +174,7 @@ const cerrarModalDetalle = () => {
   cuentaEstadia.value = null
 }
 
-// ============================================================
-// MODAL DE REGISTRO DE INGRESO / ASIGNACIÓN DE CAMA
-// ============================================================
+
 const isAssignModalOpen = ref(false)
 const formIngreso = ref<CreateInternacionDTO>({
   pacienteId: '',
@@ -204,13 +189,13 @@ const formIngreso = ref<CreateInternacionDTO>({
 const formErrors = ref<Partial<Record<keyof CreateInternacionDTO, string>>>({})
 const isSubmitting = ref(false)
 
-// Camas actualmente disponibles para asignar
+
 const camasDisponiblesParaAsignar = computed(() => {
   return camas.value.filter((c) => c.estado === 'disponible')
 })
 
 const abrirModalNuevoIngreso = (camaPreseleccionada?: Cama) => {
-  // Inicializar fecha y hora actual en formato ISO local (YYYY-MM-DDTHH:mm)
+
   const now = new Date()
   const year = now.getFullYear()
   const month = String(now.getMonth() + 1).padStart(2, '0')
@@ -272,7 +257,7 @@ const handleIngresoSubmit = async () => {
 
 <template>
   <div>
-    <!-- Encabezado de la página -->
+
     <PageHeader
       title="Internación"
       description="Gestión y disponibilidad de camas hospitalarias, asignación de pacientes e historial de internaciones."
@@ -290,7 +275,7 @@ const handleIngresoSubmit = async () => {
       </template>
     </PageHeader>
 
-    <!-- Tarjetas de resumen de camas -->
+
     <div class="row g-3 mb-4">
       <div
         v-for="card in statCards"
@@ -307,10 +292,10 @@ const handleIngresoSubmit = async () => {
       </div>
     </div>
 
-    <!-- Barra de búsqueda y filtros -->
+
     <div class="hospital-filter-bar mb-4">
       <div class="row g-2 align-items-end">
-        <!-- Buscador -->
+
         <div class="col-12 col-md-5">
           <label for="filtro-buscar" class="form-label small mb-1">Buscar cama o paciente</label>
           <div class="input-group input-group-sm">
@@ -337,7 +322,7 @@ const handleIngresoSubmit = async () => {
           </div>
         </div>
 
-        <!-- Filtro por sala -->
+
         <div class="col-6 col-md-3">
           <label for="filtro-sala" class="form-label small mb-1">Filtrar por sala</label>
           <select
@@ -353,7 +338,7 @@ const handleIngresoSubmit = async () => {
           </select>
         </div>
 
-        <!-- Filtro por estado de cama -->
+
         <div class="col-6 col-md-3">
           <label for="filtro-estado" class="form-label small mb-1">Estado de ocupación</label>
           <select
@@ -369,7 +354,7 @@ const handleIngresoSubmit = async () => {
           </select>
         </div>
 
-        <!-- Botón Limpiar filtros -->
+
         <div class="col-12 col-md-1 d-flex">
           <button
             v-if="hayFiltrosActivos"
@@ -384,7 +369,7 @@ const handleIngresoSubmit = async () => {
       </div>
     </div>
 
-    <!-- Contenedor principal: Listado de Camas -->
+
     <div class="hospital-card mb-0">
       <div class="hospital-card-header">
         <div class="hospital-card-title">
@@ -392,7 +377,7 @@ const handleIngresoSubmit = async () => {
           <span>Padrón de camas e internación</span>
         </div>
         <div class="d-flex align-items-center gap-3">
-          <!-- Leyenda de colores -->
+
           <div class="d-none d-md-flex align-items-center gap-2">
             <span class="badge-cama-disponible">
               <i class="bi bi-circle-fill" style="font-size: 0.5rem;"></i>
@@ -427,7 +412,7 @@ const handleIngresoSubmit = async () => {
               </tr>
             </thead>
             <tbody>
-              <!-- Listado cuando existen registros -->
+
               <template v-if="camasFiltradas.length > 0">
                 <tr v-for="cama in camasFiltradas" :key="cama.id">
                   <td>
@@ -466,7 +451,7 @@ const handleIngresoSubmit = async () => {
                   </td>
                   <td class="text-center">
                     <div class="d-inline-flex gap-1">
-                      <!-- Acción Ver detalle -->
+
                       <button
                         type="button"
                         class="btn-action-icon"
@@ -477,7 +462,7 @@ const handleIngresoSubmit = async () => {
                         <i class="bi bi-eye"></i>
                       </button>
 
-                      <!-- Acción Asignar cama (habilitada solo si está disponible) -->
+
                       <button
                         v-if="cama.estado === 'disponible'"
                         type="button"
@@ -493,7 +478,7 @@ const handleIngresoSubmit = async () => {
                 </tr>
               </template>
 
-              <!-- Estado vacío cuando no hay registros -->
+
               <tr v-else>
                 <td colspan="6" class="p-0">
                   <EmptyState
@@ -521,9 +506,7 @@ const handleIngresoSubmit = async () => {
       </div>
     </div>
 
-    <!-- ======================================================
-         MODAL 1: DETALLE DE CAMA E INTERNACIÓN
-    ====================================================== -->
+
     <BaseModal
       :is-open="isDetailModalOpen"
       title="Información de la Cama"
@@ -533,7 +516,7 @@ const handleIngresoSubmit = async () => {
       @close="cerrarModalDetalle"
     >
       <div v-if="selectedCama" class="p-1">
-        <!-- Ficha de la cama -->
+
         <div class="row g-3 mb-4">
           <div class="col-12 col-sm-4">
             <div class="p-2 border rounded bg-light">
@@ -560,8 +543,8 @@ const handleIngresoSubmit = async () => {
           </div>
         </div>
 
-        <!-- Sección de internación según estado -->
-        <!-- CASO 1: Cama ocupada con datos de internación -->
+
+
         <div v-if="selectedCama.estado === 'ocupada'" class="border rounded p-3 bg-light">
           <div class="d-flex align-items-center gap-2 mb-3">
             <i class="bi bi-person-heart text-success fs-5"></i>
@@ -646,7 +629,7 @@ const handleIngresoSubmit = async () => {
             </div>
           </div>
 
-          <!-- Estado de internación pendiente de datos del backend -->
+
           <div v-else>
             <EmptyState
               icon="bi-person-bounding-box"
@@ -657,7 +640,7 @@ const handleIngresoSubmit = async () => {
           </div>
         </div>
 
-        <!-- CASO 2: Cama disponible -->
+
         <div v-else-if="selectedCama.estado === 'disponible'" class="border rounded p-3 text-center bg-light">
           <i class="bi bi-check-circle text-success fs-3 mb-2 d-block"></i>
           <div class="fw-semibold text-dark mb-1">Cama disponible para asignación</div>
@@ -674,7 +657,7 @@ const handleIngresoSubmit = async () => {
           </button>
         </div>
 
-        <!-- CASO 3: Cama en limpieza -->
+
         <div v-else class="border rounded p-3 text-center bg-light">
           <i class="bi bi-stars text-warning fs-3 mb-2 d-block"></i>
           <div class="fw-semibold text-dark mb-1">Cama en proceso de limpieza</div>
@@ -696,9 +679,7 @@ const handleIngresoSubmit = async () => {
       </template>
     </BaseModal>
 
-    <!-- ======================================================
-         MODAL 2: REGISTRAR INGRESO / ASIGNAR CAMA
-    ====================================================== -->
+
     <BaseModal
       :is-open="isAssignModalOpen"
       title="Registrar Ingreso a Internación"
@@ -708,7 +689,7 @@ const handleIngresoSubmit = async () => {
       @close="cerrarModalAsignar"
     >
       <form id="form-ingreso-internacion" novalidate @submit.prevent="handleIngresoSubmit">
-        <!-- Aviso de preparación para integración -->
+
         <div class="alert alert-light border py-2 px-3 d-flex align-items-center gap-2 mb-3">
           <i class="bi bi-info-circle text-success fs-5"></i>
           <span class="small text-muted">
@@ -717,7 +698,7 @@ const handleIngresoSubmit = async () => {
           </span>
         </div>
 
-        <!-- Paciente -->
+
         <div class="mb-3">
           <label for="ingreso-paciente" class="form-label">
             Paciente que ingresa <span class="text-danger">*</span>
@@ -751,7 +732,7 @@ const handleIngresoSubmit = async () => {
         </div>
 
         <div class="row g-3 mb-3">
-          <!-- Cama disponible -->
+
           <div class="col-12 col-md-6">
             <label for="ingreso-cama" class="form-label">
               Cama asignada <span class="text-danger">*</span>
@@ -784,7 +765,7 @@ const handleIngresoSubmit = async () => {
             </div>
           </div>
 
-          <!-- Fecha y hora de ingreso -->
+
           <div class="col-12 col-md-6">
             <label for="ingreso-fechahora" class="form-label">
               Fecha y hora de ingreso <span class="text-danger">*</span>
@@ -871,7 +852,7 @@ const handleIngresoSubmit = async () => {
           </div>
         </div>
 
-        <!-- Observaciones de ingreso -->
+
         <div class="mb-2">
           <label for="ingreso-observaciones" class="form-label">
             Observaciones de internación

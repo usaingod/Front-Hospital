@@ -10,18 +10,10 @@ import { useAuthStore } from '@/stores/auth'
 import { turnosService } from '@/services/turnosService'
 import { todayIsoLocal } from '@/utils/dateLocal'
 
-/**
- * Vista de Inicio (Perfil Médico)
- * Criterios 1, 2, 3, 5, 8:
- * - Panel de control diario con fecha actual del sistema.
- * - Tarjetas estadísticas de turnos (hoy, confirmados, pendientes, cancelados) con guion neutral ('—').
- * - Calendario mensual compacto con navegación temporal e indicador de fecha seleccionada sin turnos ficticios.
- * - Tablas de "Turnos de hoy" y "Próximos turnos" con encabezados completos y estado vacío estandarizado.
- * - Accesos rápidos para navegación directa a Turnos, Pacientes e Historia Clínica.
- */
+
 const router = useRouter()
 
-// Fecha actual del sistema formateada en español
+
 const todayFormatted = computed(() => {
   const now = new Date()
   const formatted = now.toLocaleDateString('es-ES', {
@@ -86,7 +78,7 @@ const statCards = computed(() => [
   },
 ])
 
-// Accesos rápidos a secciones operativas del médico
+
 const quickActions = [
   {
     title: 'Ver mis turnos',
@@ -108,7 +100,7 @@ const quickActions = [
   },
 ]
 
-// Calendario mensual compacto con navegación real sin turnos ficticios
+
 const currentDate = ref(new Date())
 const selectedDate = ref<Date>(new Date())
 
@@ -129,13 +121,13 @@ const calendarDays = computed(() => {
   const firstDayOfMonth = new Date(year, month, 1)
   const lastDayOfMonth = new Date(year, month + 1, 0)
 
-  // Ajustar día de inicio considerando lunes como primer día (0 = Domingo en JS)
+
   let startDay = firstDayOfMonth.getDay() - 1
   if (startDay === -1) startDay = 6
 
   const days = []
 
-  // Días del mes anterior para rellenar
+
   const prevMonthLastDay = new Date(year, month, 0).getDate()
   for (let i = startDay - 1; i >= 0; i--) {
     days.push({
@@ -145,7 +137,7 @@ const calendarDays = computed(() => {
     })
   }
 
-  // Días del mes actual
+
   for (let i = 1; i <= lastDayOfMonth.getDate(); i++) {
     days.push({
       dayNumber: i,
@@ -154,7 +146,7 @@ const calendarDays = computed(() => {
     })
   }
 
-  // Días del siguiente mes para completar la cuadrícula de 42 celdas
+
   const remainingDays = 42 - days.length
   for (let i = 1; i <= remainingDays; i++) {
     days.push({
@@ -212,7 +204,7 @@ const navigateTo = (path: string) => {
 
 <template>
   <div>
-    <!-- Encabezado de la página usando componente reutilizable -->
+
     <PageHeader
       title="Inicio"
       description="Panel de consulta y control para el profesional médico. Visualización de turnos asignados y pacientes."
@@ -233,7 +225,7 @@ const navigateTo = (path: string) => {
       </div>
     </PageHeader>
 
-    <!-- Tarjetas de Resumen Reutilizables (Sin cantidades ficticias, con guion neutral) -->
+
     <div class="row g-3 mb-4">
       <div
         v-for="card in statCards"
@@ -250,7 +242,7 @@ const navigateTo = (path: string) => {
       </div>
     </div>
 
-    <!-- Accesos Rápidos -->
+
     <div class="mb-4">
       <h2 class="h6 text-uppercase fw-bold text-muted mb-3" style="letter-spacing: 0.05em;">
         Accesos directos
@@ -282,9 +274,9 @@ const navigateTo = (path: string) => {
       </div>
     </div>
 
-    <!-- Contenido Principal: Turnos de Hoy & Calendario Compacto -->
+
     <div class="row g-4 mb-4">
-      <!-- Columna Izquierda: Tabla Turnos de Hoy -->
+
       <div class="col-12 col-xl-8">
         <div class="hospital-card h-100 mb-0">
           <div class="hospital-card-header">
@@ -303,7 +295,7 @@ const navigateTo = (path: string) => {
           </div>
 
           <div class="hospital-card-body p-0">
-            <!-- Tabla responsiva preparada con directivas v-if / v-else -->
+
             <div class="hospital-table-wrapper border-0 rounded-0">
               <table class="hospital-table">
                 <thead>
@@ -334,7 +326,7 @@ const navigateTo = (path: string) => {
                     </tr>
                   </template>
 
-                  <!-- Estado vacío estandarizado cuando no hay datos precargados -->
+
                   <tr v-else>
                     <td colspan="5" class="p-0">
                       <EmptyState
@@ -351,7 +343,7 @@ const navigateTo = (path: string) => {
         </div>
       </div>
 
-      <!-- Columna Derecha: Calendario Mensual Compacto -->
+
       <div class="col-12 col-xl-4">
         <div class="hospital-card h-100 mb-0">
           <div class="hospital-card-header">
@@ -370,7 +362,7 @@ const navigateTo = (path: string) => {
           </div>
 
           <div class="hospital-card-body p-3">
-            <!-- Selector de Mes -->
+
             <div class="d-flex align-items-center justify-content-between mb-3">
               <button
                 type="button"
@@ -391,7 +383,7 @@ const navigateTo = (path: string) => {
               </button>
             </div>
 
-            <!-- Cabecera de días de la semana -->
+
             <div class="row g-1 text-center mb-1">
               <div
                 v-for="dayName in daysOfWeek"
@@ -403,7 +395,7 @@ const navigateTo = (path: string) => {
               </div>
             </div>
 
-            <!-- Grilla de días del calendario -->
+
             <div class="row g-1 text-center">
               <div
                 v-for="(day, index) in calendarDays"
@@ -429,7 +421,7 @@ const navigateTo = (path: string) => {
               </div>
             </div>
 
-            <!-- Leyenda explicativa -->
+
             <div class="mt-3 pt-2 border-top d-flex align-items-center justify-content-center gap-3 small text-muted">
               <span class="d-flex align-items-center gap-1">
                 <span class="d-inline-block rounded-circle bg-warning" style="width: 8px; height: 8px;"></span>
@@ -445,7 +437,7 @@ const navigateTo = (path: string) => {
       </div>
     </div>
 
-    <!-- Tabla: Próximos Turnos Programados -->
+
     <div class="hospital-card mb-0">
       <div class="hospital-card-header">
         <div class="hospital-card-title">
@@ -488,7 +480,7 @@ const navigateTo = (path: string) => {
                 </tr>
               </template>
 
-              <!-- Estado vacío para próximos turnos -->
+
               <tr v-else>
                 <td colspan="6" class="p-0">
                   <EmptyState

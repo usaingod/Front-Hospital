@@ -7,14 +7,7 @@ import type { Medico, HorarioAtencion } from '@/types/medico'
 import { ApiError } from '@/services/api'
 import { medicosService } from '@/services/medicosService'
 
-/**
- * Vista de Médicos (Secretaría)
- * Criterios 1, 2, 3, 5, 8, 9:
- * - Consulta de cuerpo médico y configuración de agendas de atención
- * - Componentes reutilizables: PageHeader, EmptyState, BaseModal
- * - Directivas v-if, v-else, v-for, v-model, :class, :disabled
- * - Sin médicos ni horarios de ejemplo precargados
- */
+
 
 const medicos = ref<Medico[]>([])
 const horarios = ref<HorarioAtencion[]>([])
@@ -54,11 +47,11 @@ const filteredMedicos = computed(() =>
   }),
 )
 
-// Modal de horarios
+
 const isScheduleModalOpen = ref(false)
 const scheduleModalMode = ref<'crear' | 'editar'>('crear')
 
-// Formulario vacío de horarios
+
 const scheduleForm = ref({
   diaSemana: '',
   horaInicio: '',
@@ -128,13 +121,13 @@ const resetFilters = () => {
 
 <template>
   <div>
-    <!-- Encabezado de la página -->
+
     <PageHeader
       title="Médicos"
       description="Cuerpo profesional, especialidades médicas y configuración de agendas de atención."
     />
 
-    <!-- Barra de búsqueda y filtros -->
+
     <div class="hospital-filter-bar mb-4">
       <div class="row g-2 align-items-end">
         <div class="col-12 col-md-5">
@@ -187,7 +180,7 @@ const resetFilters = () => {
     </div>
 
     <div class="row g-4">
-      <!-- Columna Izquierda: Listado de Médicos con directivas v-if / v-else / v-for -->
+
       <div class="col-12 col-xl-5">
         <div class="hospital-card h-100 mb-0">
           <div class="hospital-card-header">
@@ -213,7 +206,7 @@ const resetFilters = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  <!-- v-if para listar profesionales cuando el backend esté integrado -->
+
                   <template v-if="filteredMedicos.length > 0">
                     <tr
                       v-for="medico in filteredMedicos"
@@ -239,7 +232,7 @@ const resetFilters = () => {
                     </tr>
                   </template>
 
-                  <!-- v-else para estado vacío estandarizado -->
+
                   <tr v-else>
                     <td colspan="5" class="p-0">
                       <EmptyState
@@ -256,9 +249,9 @@ const resetFilters = () => {
         </div>
       </div>
 
-      <!-- Columna Derecha: Panel de Datos del Médico & Horarios de Atención -->
+
       <div class="col-12 col-xl-7 d-flex flex-column gap-4">
-        <!-- Panel de Datos del Médico Seleccionado -->
+
         <div class="hospital-card mb-0">
           <div class="hospital-card-header">
             <div class="hospital-card-title">
@@ -269,7 +262,7 @@ const resetFilters = () => {
           </div>
 
           <div class="hospital-card-body">
-            <!-- Mensaje con EmptyState cuando todavía no hay médico seleccionado -->
+
             <EmptyState
               v-if="!selectedDoctor"
               compact
@@ -278,7 +271,7 @@ const resetFilters = () => {
               description="Al seleccionar un profesional del listado de la izquierda, podrás ver aquí su información de contacto, especialidad y horarios asignados."
             />
 
-            <!-- Estructura lista para datos del médico seleccionado (v-else) -->
+
             <div v-else class="row g-3">
               <div class="col-12 col-md-6">
                 <div class="small text-muted">Nombre y Apellido</div>
@@ -304,7 +297,7 @@ const resetFilters = () => {
           </div>
         </div>
 
-        <!-- Sección: Horarios de Atención -->
+
         <div class="hospital-card mb-0">
           <div class="hospital-card-header">
             <div class="hospital-card-title">
@@ -324,7 +317,7 @@ const resetFilters = () => {
           </div>
 
           <div class="hospital-card-body p-0">
-            <!-- Tabla vacía de horarios con sus 7 columnas requeridas -->
+
             <div class="hospital-table-wrapper border-0 rounded-0">
               <table class="hospital-table">
                 <thead>
@@ -339,7 +332,7 @@ const resetFilters = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  <!-- v-if para franjas horarias cuando estén configuradas -->
+
                   <template v-if="horarios.length > 0">
                     <tr v-for="h in horarios" :key="h.id || h.diaSemana">
                       <td>{{ h.diaSemana }}</td>
@@ -360,7 +353,7 @@ const resetFilters = () => {
                     </tr>
                   </template>
 
-                  <!-- v-else para estado vacío de horarios -->
+
                   <tr v-else>
                     <td colspan="7" class="p-0">
                       <EmptyState
@@ -375,7 +368,7 @@ const resetFilters = () => {
               </table>
             </div>
 
-            <!-- Representación Semanal Vacía de Horarios -->
+
             <div class="p-3 border-top bg-light">
               <div class="d-flex align-items-center justify-content-between mb-2">
                 <span class="small fw-semibold text-secondary text-uppercase" style="letter-spacing: 0.05em;">
@@ -403,7 +396,7 @@ const resetFilters = () => {
       </div>
     </div>
 
-    <!-- Modal Reutilizable: Formulario de Horarios de Atención -->
+
     <BaseModal
       :is-open="isScheduleModalOpen"
       :title="scheduleModalMode === 'crear' ? 'Agregar Horario de Atención' : 'Editar Horario'"
@@ -412,7 +405,7 @@ const resetFilters = () => {
     >
       <form @submit.prevent="handleScheduleSubmit">
         <div class="row g-3">
-          <!-- Día de la semana -->
+
           <div class="col-12">
             <label class="form-label">Día de la semana</label>
             <select v-model="scheduleForm.diaSemana" class="form-select">
@@ -421,7 +414,7 @@ const resetFilters = () => {
             </select>
           </div>
 
-          <!-- Hora de inicio y fin -->
+
           <div class="col-12 col-md-6">
             <label class="form-label">Hora de inicio</label>
             <input
@@ -442,7 +435,7 @@ const resetFilters = () => {
             />
           </div>
 
-          <!-- Consultorio -->
+
           <div class="col-12 col-md-6">
             <label class="form-label">Consultorio</label>
             <input
@@ -453,7 +446,7 @@ const resetFilters = () => {
             />
           </div>
 
-          <!-- Modalidad de atención -->
+
           <div class="col-12 col-md-6">
             <label class="form-label">Modalidad de atención</label>
             <select v-model="scheduleForm.modalidad" class="form-select">
@@ -463,7 +456,7 @@ const resetFilters = () => {
             </select>
           </div>
 
-          <!-- Estado -->
+
           <div class="col-12">
             <label class="form-label">Estado</label>
             <select v-model="scheduleForm.estado" class="form-select">

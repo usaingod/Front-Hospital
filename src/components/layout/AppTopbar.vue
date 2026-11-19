@@ -3,12 +3,7 @@ import { computed } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useUiStore } from '@/stores/ui'
 
-/**
- * Componente: Barra Superior (Topbar)
- * Sincronizado dinámicamente con el perfil activo
- * (Secretaría / Administrador / Médico / Enfermería).
- * Incluye el botón de menú móvil, barra de búsqueda general y notificaciones visuales.
- */
+
 const uiStore = useUiStore()
 const authStore = useAuthStore()
 
@@ -51,14 +46,14 @@ const topbarAvatarIcon = computed(() => {
 })
 
 const handleSearch = () => {
-  // Acción visual de búsqueda general (pendiente de backend)
+
 }
 </script>
 
 <template>
   <header class="hospital-topbar">
     <div class="d-flex align-items-center gap-3">
-      <!-- Botón para alternar la barra lateral en pantallas móviles -->
+
       <button
         class="btn btn-sm btn-outline-secondary d-lg-none"
         type="button"
@@ -68,7 +63,7 @@ const handleSearch = () => {
         <i class="bi bi-list fs-5"></i>
       </button>
 
-      <!-- Buscador General Visual -->
+
       <div class="hospital-search-wrapper">
         <i class="bi bi-search hospital-search-icon"></i>
         <input
@@ -81,9 +76,9 @@ const handleSearch = () => {
       </div>
     </div>
 
-    <!-- Acciones del extremo derecho de la barra superior -->
+
     <div class="hospital-topbar-actions">
-      <!-- Notificaciones del sistema (Visual) -->
+
       <button
         class="hospital-action-btn"
         type="button"
@@ -97,7 +92,7 @@ const handleSearch = () => {
         ></span>
       </button>
 
-      <!-- Perfil de usuario activo -->
+
       <div class="hospital-topbar-profile">
         <div
           class="hospital-avatar-sm"

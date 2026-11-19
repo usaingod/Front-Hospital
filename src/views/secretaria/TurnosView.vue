@@ -149,7 +149,7 @@ const monthCells = computed(() => {
   const year = anchor.getFullYear()
   const month = anchor.getMonth()
   const first = new Date(year, month, 1)
-  const startOffset = (first.getDay() + 6) % 7 // lunes = 0
+  const startOffset = (first.getDay() + 6) % 7
   const start = new Date(year, month, 1 - startOffset)
   const cells = []
   for (let i = 0; i < 42; i++) {

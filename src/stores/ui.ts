@@ -10,27 +10,15 @@ export interface ProfileInfo {
   initials?: string
 }
 
-/**
- * Store global de Pinia para la gestión del estado de la interfaz de usuario (UI)
- * y el contexto de alternancia visual de perfiles (Secretaría / Administrador / Médico / Enfermería).
- *
- * Justificación de su uso (Criterio 6):
- * - Permite sincronizar la barra superior (Topbar) y la barra lateral (Sidebar)
- *   sin necesidad de prop-drilling en los layouts.
- * - Gestiona el perfil visual activo seleccionado (Secretaría, Administrador, Médico o Enfermería)
- *   para actualizar avatares, nombres y colores en tiempo real sin recargas.
- * - Sincroniza el menú responsive móvil y los indicadores del sistema.
- * - NO almacena datos ficticios ni actúa como base de datos simulada ni gestiona
- *   autenticación real, contraseñas o seguridad.
- */
+
 export const useUiStore = defineStore('ui', () => {
-  // Estado de visibilidad de la barra lateral en pantallas móviles
+
   const isMobileSidebarOpen = ref(false)
 
-  // Rol visual actualmente seleccionado
+
   const currentRole = ref<UserRole>('secretaria')
 
-  // Perfil representativo para Secretaría
+
   const secretaryProfile = ref<ProfileInfo>({
     name: 'Secretaría General',
     role: 'Atención y Turnos',
@@ -38,7 +26,7 @@ export const useUiStore = defineStore('ui', () => {
     initials: 'SG',
   })
 
-  // Perfil representativo para Administrador
+
   const adminProfile = ref<ProfileInfo>({
     name: 'Administración Central',
     role: 'Gestión y Configuración',
@@ -46,7 +34,7 @@ export const useUiStore = defineStore('ui', () => {
     initials: 'AC',
   })
 
-  // Perfil representativo para Médico
+
   const doctorProfile = ref<ProfileInfo>({
     name: 'Cuerpo Médico',
     role: 'Atención Médica',
@@ -54,7 +42,7 @@ export const useUiStore = defineStore('ui', () => {
     initials: 'CM',
   })
 
-  // Perfil representativo para Enfermería
+
   const nursingProfile = ref<ProfileInfo>({
     name: 'Servicio de Enfermería',
     role: 'Cuidados e Internación',
@@ -62,7 +50,7 @@ export const useUiStore = defineStore('ui', () => {
     initials: 'EN',
   })
 
-  // Perfil visual activo según el rol seleccionado
+
   const activeProfile = computed<ProfileInfo>(() => {
     if (currentRole.value === 'admin') return adminProfile.value
     if (currentRole.value === 'medico') return doctorProfile.value
@@ -70,10 +58,10 @@ export const useUiStore = defineStore('ui', () => {
     return secretaryProfile.value
   })
 
-  // Contador de notificaciones pendientes
+
   const unreadNotificationsCount = ref(0)
 
-  // Acciones para controlar la barra lateral
+
   const toggleSidebar = () => {
     isMobileSidebarOpen.value = !isMobileSidebarOpen.value
   }
@@ -86,12 +74,12 @@ export const useUiStore = defineStore('ui', () => {
     isMobileSidebarOpen.value = true
   }
 
-  // Cambiar rol visual (Secretaría / Administrador / Médico / Enfermería)
+
   const setRole = (role: UserRole) => {
     currentRole.value = role
   }
 
-  // Sincronizar automáticamente el rol visual con la ruta activa
+
   const syncRoleWithRoute = (path: string) => {
     if (path.startsWith('/admin')) {
       currentRole.value = 'admin'

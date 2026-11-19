@@ -1,18 +1,13 @@
-/**
- * Tipos para el dominio de Internación y Camas.
- * Preparados para la futura integración con los endpoints del backend (NestJS / Prisma).
- * Basados en el schema.prisma y los contratos de API reales.
- * No se inventan propiedades: solo se definen las que surgen del análisis del repositorio.
- */
 
-// Estados posibles de una cama (deben verificarse contra el backend real)
+
+
 export type EstadoCama = 'disponible' | 'ocupada' | 'en_limpieza' | 'bloqueada'
 
-// Modelo de Ala hospitalaria para la gestión de infraestructura (Perfil Administrador)
+
 export interface Ala {
   id: string
-  nombre: string        // Nombre del ala (ej: "Ala 1", "Ala 2")
-  descripcion?: string  // Ubicación o notas del ala
+  nombre: string
+  descripcion?: string
 }
 
 export interface CreateAlaDTO {
@@ -22,13 +17,13 @@ export interface CreateAlaDTO {
 
 export interface Cama {
   id: string
-  numero: string        // Identificador/número de cama generado por backend (ej: "101", "102", "201")
-  sala: string          // Sala o sector al que pertenece
-  ala?: string          // Ala hospitalaria correspondiente
-  alaId?: string        // ID de la relación con el Ala en el backend
-  habitacion?: string   // Habitación
+  numero: string
+  sala: string
+  ala?: string
+  alaId?: string
+  habitacion?: string
   estado: EstadoCama
-  pacienteId?: string   // ID del paciente internado (si está ocupada)
+  pacienteId?: string
   pacienteNombre?: string
   pacienteDni?: string
   internacionId?: string
@@ -50,7 +45,7 @@ export interface CamaFilter {
 
 export interface CreateCamaDTO {
   alaId?: string
-  ala: string           // Ala seleccionada para la asignación automática del número en el backend
+  ala: string
   sala?: string
 }
 
@@ -61,7 +56,7 @@ export interface UpdateCamaDTO {
   estado?: EstadoCama
 }
 
-// Datos de internación de un paciente
+
 export interface Internacion {
   id: string
   pacienteId: string
@@ -71,13 +66,13 @@ export interface Internacion {
   sala: string
   habitacion?: string
   numeroCama: string
-  fechaIngreso: string   // ISO 8601
+  fechaIngreso: string
   diagnostico?: string
   motivo?: string
   protocolTasks?: string[]
   medicoTratanteId?: string
   medicoTratanteNombre?: string
-  estado?: string        // Estado de internación (activo, alta, traslado, etc.)
+  estado?: string
   observaciones?: string
 }
 

@@ -8,15 +8,7 @@ import type { Especialidad, CreateEspecialidadDTO } from '@/types/especialidad'
 import { ApiError } from '@/services/api'
 import { especialidadesService } from '@/services/especialidadesService'
 
-/**
- * Vista: Gestión de Especialidades (SpecialtiesView.vue)
- * Criterios 1, 2, 3, 5, 8, 9:
- * - Indicadores clave con guión neutral (sin cifras ficticias).
- * - Tabla con encabezados completos y estado vacío estandarizado.
- * - Filtros por término de búsqueda y por estado (Activa / Inactiva).
- * - Modal visual para consultar, crear y editar especialidades.
- * - Sin simular persistencia ni llamadas a backend en esta etapa.
- */
+
 
 const especialidades = ref<Especialidad[]>([])
 
@@ -56,16 +48,16 @@ const statCards = computed(() => [
   },
 ])
 
-// Filtros y búsqueda
+
 const searchQuery = ref('')
 const filterEstado = ref('')
 
-// Estado del Modal de Alta / Edición / Consulta
+
 const isModalOpen = ref(false)
 const modalMode = ref<'crear' | 'editar' | 'consultar'>('crear')
 const selectedSpecialty = ref<Especialidad | null>(null)
 
-// Formulario de especialidad (campos vacíos con placeholders descriptivos)
+
 const form = ref<CreateEspecialidadDTO>({
   nombre: '',
   descripcion: '',
@@ -73,7 +65,7 @@ const form = ref<CreateEspecialidadDTO>({
   estado: 'activa',
 })
 
-// Opciones de iconos representativos para especialidades
+
 const iconOptions = [
   { label: 'General / Premio (bi-award)', value: 'bi-award' },
   { label: 'Cardiología (bi-heart-pulse)', value: 'bi-heart-pulse' },
@@ -85,7 +77,7 @@ const iconOptions = [
   { label: 'Cirugía / Instrumentación (bi-scissors)', value: 'bi-scissors' },
 ]
 
-// Modal para Crear
+
 const openCreateModal = () => {
   modalMode.value = 'crear'
   selectedSpecialty.value = null
@@ -98,7 +90,7 @@ const openCreateModal = () => {
   isModalOpen.value = true
 }
 
-// Modal para Consultar
+
 const openViewModal = (specialty: Especialidad) => {
   modalMode.value = 'consultar'
   selectedSpecialty.value = specialty
@@ -111,7 +103,7 @@ const openViewModal = (specialty: Especialidad) => {
   isModalOpen.value = true
 }
 
-// Modal para Editar
+
 const openEditModal = (specialty: Especialidad) => {
   modalMode.value = 'editar'
   selectedSpecialty.value = specialty
@@ -124,7 +116,7 @@ const openEditModal = (specialty: Especialidad) => {
   isModalOpen.value = true
 }
 
-// Acción visual para Eliminar
+
 const handleDelete = async (specialty: Especialidad) => {
   if (!confirm(`¿Desea eliminar la especialidad "${specialty.nombre}"?`)) return
   try {
@@ -157,7 +149,7 @@ const handleSave = async () => {
   }
 }
 
-// Filtrado reactivo de la lista de especialidades
+
 const filteredSpecialties = computed(() => {
   return especialidades.value.filter((item) => {
     const matchesQuery =
@@ -175,7 +167,7 @@ const filteredSpecialties = computed(() => {
 
 <template>
   <div class="specialties-view">
-    <!-- Encabezado con acción principal -->
+
     <PageHeader
       title="Gestión de Especialidades"
       description="Registro, edición y control de las áreas médicas y especialidades del hospital."
@@ -192,7 +184,7 @@ const filteredSpecialties = computed(() => {
       </template>
     </PageHeader>
 
-    <!-- Indicadores estadísticos sin datos ficticios -->
+
     <div class="row g-3 mb-4">
       <div
         v-for="card in statCards"
@@ -209,10 +201,10 @@ const filteredSpecialties = computed(() => {
       </div>
     </div>
 
-    <!-- Barra de filtros y búsqueda -->
+
     <div class="hospital-filter-bar">
       <div class="row g-3 align-items-center">
-        <!-- Campo de búsqueda -->
+
         <div class="col-12 col-md-6 col-lg-5">
           <label class="form-label" for="specialty-search">Buscar especialidad</label>
           <div class="position-relative">
@@ -227,7 +219,7 @@ const filteredSpecialties = computed(() => {
           </div>
         </div>
 
-        <!-- Filtro por estado -->
+
         <div class="col-12 col-md-4 col-lg-3">
           <label class="form-label" for="specialty-status-filter">Filtrar por estado</label>
           <select
@@ -241,7 +233,7 @@ const filteredSpecialties = computed(() => {
           </select>
         </div>
 
-        <!-- Botón para limpiar filtros -->
+
         <div class="col-12 col-md-2 col-lg-2 d-flex align-items-end">
           <button
             type="button"
@@ -256,7 +248,7 @@ const filteredSpecialties = computed(() => {
       </div>
     </div>
 
-    <!-- Contenedor de la Tabla -->
+
     <div class="hospital-card">
       <div class="hospital-card-header">
         <h2 class="hospital-card-title">
@@ -281,7 +273,7 @@ const filteredSpecialties = computed(() => {
               </tr>
             </thead>
             <tbody>
-              <!-- Listado cuando existan registros -->
+
               <tr
                 v-for="specialty in filteredSpecialties"
                 :key="specialty.id"
@@ -341,7 +333,7 @@ const filteredSpecialties = computed(() => {
                 </td>
               </tr>
 
-              <!-- Estado vacío discreto dentro de la tabla -->
+
               <tr v-if="filteredSpecialties.length === 0">
                 <td colspan="5" class="p-0">
                   <EmptyState
@@ -368,7 +360,7 @@ const filteredSpecialties = computed(() => {
       </div>
     </div>
 
-    <!-- Modal para Crear / Editar / Consultar Especialidad -->
+
     <BaseModal
       :is-open="isModalOpen"
       :title="
@@ -384,7 +376,7 @@ const filteredSpecialties = computed(() => {
       @close="closeModal"
     >
       <form @submit.prevent="handleSave">
-        <!-- Nombre de la especialidad -->
+
         <div class="mb-3">
           <label class="form-label" for="specialty-name">
             Nombre de la especialidad <span class="text-danger">*</span>
@@ -400,7 +392,7 @@ const filteredSpecialties = computed(() => {
           />
         </div>
 
-        <!-- Descripción -->
+
         <div class="mb-3">
           <label class="form-label" for="specialty-desc">
             Descripción y alcance asistencial
@@ -415,7 +407,7 @@ const filteredSpecialties = computed(() => {
           ></textarea>
         </div>
 
-        <!-- Icono representativo -->
+
         <div class="mb-3">
           <label class="form-label" for="specialty-icon">
             Icono representativo
@@ -436,7 +428,7 @@ const filteredSpecialties = computed(() => {
           </select>
         </div>
 
-        <!-- Estado -->
+
         <div class="mb-3">
           <label class="form-label" for="specialty-status">
             Estado de la especialidad <span class="text-danger">*</span>

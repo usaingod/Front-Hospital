@@ -4,15 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useUiStore, type UserRole } from '@/stores/ui'
 
-/**
- * Componente Reutilizable: Barra Lateral (Sidebar)
- * Criterios 1, 3, 4, 5, 6, 8:
- * - Adapta su paleta y opciones según el rol activo
- *   (Secretaría en verde, Administrador en azul, Médico en dorado, Enfermería en rojo/bordó).
- * - Incorpora el Selector de Perfil con los cuatro perfiles disponibles.
- * - Navega mediante Vue Router sin recarga innecesaria de página.
- * - Respeta las opciones de cada perfil sin elementos sobrantes.
- */
+
 const props = withDefaults(
   defineProps<{
     variant?: UserRole
@@ -25,7 +17,7 @@ const router = useRouter()
 const uiStore = useUiStore()
 const authStore = useAuthStore()
 
-// Determinar el rol activo: prop explícita o sincronizado con uiStore/ruta
+
 const activeRole = computed<UserRole>(() => {
   if (props.variant) return props.variant
   return uiStore.currentRole
@@ -35,7 +27,7 @@ const isAdmin = computed(() => activeRole.value === 'admin')
 const isMedico = computed(() => activeRole.value === 'medico')
 const isEnfermeria = computed(() => activeRole.value === 'enfermeria')
 
-// Opciones de navegación de Secretaría (5 opciones)
+
 const secretariaNavItems = [
   { name: 'Inicio', path: '/secretaria/inicio', icon: 'bi-grid-1x2' },
   { name: 'Turnos', path: '/secretaria/turnos', icon: 'bi-calendar3' },
@@ -45,7 +37,7 @@ const secretariaNavItems = [
   { name: 'Internación', path: '/secretaria/internacion', icon: 'bi-hospital' },
 ]
 
-// Opciones de navegación de Administrador (5 opciones)
+
 const adminNavItems = [
   { name: 'Inicio', path: '/admin/inicio', icon: 'bi-grid-1x2' },
   { name: 'Especialidades', path: '/admin/especialidades', icon: 'bi-award' },
@@ -54,21 +46,21 @@ const adminNavItems = [
   { name: 'Usuarios', path: '/admin/usuarios', icon: 'bi-person' },
 ]
 
-// Opciones de navegación de Médico (estrictamente 3 opciones)
+
 const medicoNavItems = [
   { name: 'Inicio', path: '/medico/inicio', icon: 'bi-grid-1x2' },
   { name: 'Turnos', path: '/medico/turnos', icon: 'bi-calendar3' },
   { name: 'Pacientes', path: '/medico/pacientes', icon: 'bi-people' },
 ]
 
-// Opciones de navegación de Enfermería (3 secciones)
+
 const enfermeriaNavItems = [
   { name: 'Inicio', path: '/enfermeria/inicio', icon: 'bi-grid-1x2' },
   { name: 'Camas', path: '/enfermeria/camas', icon: 'bi-hospital' },
   { name: 'Paciente', path: '/enfermeria/paciente', icon: 'bi-person-heart' },
 ]
 
-// Lista reactiva de navegación según el perfil activo
+
 const currentNavItems = computed(() => {
   if (isAdmin.value) return adminNavItems
   if (isMedico.value) return medicoNavItems
@@ -90,7 +82,7 @@ const navCategory = computed(() => {
   return 'Menú Principal'
 })
 
-// Control del menú desplegable del selector de perfil
+
 const isProfileDropdownOpen = ref(false)
 const selectorRef = ref<HTMLElement | null>(null)
 
@@ -133,7 +125,7 @@ const selectProfile = (newRole: UserRole) => {
   }
 }
 
-// Cerrar dropdown al hacer clic fuera del componente
+
 const handleClickOutside = (event: MouseEvent) => {
   if (
     selectorRef.value &&
@@ -170,7 +162,7 @@ const handleLogout = async () => {
     aria-label="Navegación lateral del hospital"
   >
     <div>
-      <!-- Marca institucional del hospital -->
+
       <div class="hospital-sidebar-brand">
         <div class="hospital-brand-icon">
           <i class="bi bi-hospital"></i>
@@ -183,7 +175,7 @@ const handleLogout = async () => {
         </div>
       </div>
 
-      <!-- Enlaces de navegación -->
+
       <nav class="hospital-sidebar-nav" aria-label="Menú principal de navegación">
         <div class="hospital-nav-category">
           {{ navCategory }}
@@ -206,9 +198,9 @@ const handleLogout = async () => {
       </nav>
     </div>
 
-    <!-- Pie del sidebar: Selector visual de perfil y cierre de sesión -->
+
     <div class="hospital-sidebar-footer">
-      <!-- Selector de Perfil Desplegable -->
+
       <div ref="selectorRef" class="hospital-profile-selector">
         <button
           type="button"
@@ -254,7 +246,7 @@ const handleLogout = async () => {
           <i class="bi bi-chevron-down dropdown-chevron"></i>
         </button>
 
-        <!-- Menú flotante del selector con los cuatro perfiles -->
+
         <div
           v-if="isProfileDropdownOpen"
           class="profile-dropdown-menu"
@@ -263,7 +255,7 @@ const handleLogout = async () => {
         >
           <div class="profile-dropdown-header">Cambiar Perfil Visual</div>
 
-          <!-- Opción: Secretaría -->
+
           <button
             type="button"
             class="profile-dropdown-item"
@@ -282,7 +274,7 @@ const handleLogout = async () => {
             <i v-if="activeRole === 'secretaria'" class="bi bi-check2 profile-item-check"></i>
           </button>
 
-          <!-- Opción: Administrador -->
+
           <button
             type="button"
             class="profile-dropdown-item"
@@ -301,7 +293,7 @@ const handleLogout = async () => {
             <i v-if="activeRole === 'admin'" class="bi bi-check2 profile-item-check"></i>
           </button>
 
-          <!-- Opción: Médico -->
+
           <button
             type="button"
             class="profile-dropdown-item"
@@ -320,7 +312,7 @@ const handleLogout = async () => {
             <i v-if="activeRole === 'medico'" class="bi bi-check2 profile-item-check"></i>
           </button>
 
-          <!-- Opción: Enfermería -->
+
           <button
             type="button"
             class="profile-dropdown-item"
@@ -341,7 +333,7 @@ const handleLogout = async () => {
         </div>
       </div>
 
-      <!-- Botón Cerrar Sesión (Mantenido debajo del selector) -->
+
       <button
         type="button"
         class="btn-sidebar-logout"

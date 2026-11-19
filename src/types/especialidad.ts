@@ -1,7 +1,4 @@
-/**
- * Definiciones de tipos para el dominio de Especialidades Médicas.
- * Preparadas para la futura integración con los contratos de API del backend.
- */
+
 
 export interface Especialidad {
   id: number | string

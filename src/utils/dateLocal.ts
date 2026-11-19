@@ -1,9 +1,9 @@
-/** Zona clínica del hospital (misma que `CLINIC_TZ` de la API). */
+
 export const CLINIC_TZ = 'America/Argentina/Buenos_Aires'
-/** Argentina sin DST. */
+
 export const CLINIC_OFFSET = '-03:00'
 
-/** Fechas de calendario en zona clínica (evita el desfase de `toISOString()` / UTC del Docker). */
+
 
 function partsInClinicTz(date: Date) {
   const parts = new Intl.DateTimeFormat('en-US', {
@@ -35,13 +35,13 @@ export function todayIsoLocal(): string {
   return toIsoDateLocal(new Date())
 }
 
-/** Fecha y hora de un ISO UTC interpretadas en la zona de la clínica. */
+
 export function clinicPartsFromIso(iso: string): { fecha: string; hora: string } {
   const { year, month, day, hour, minute } = partsInClinicTz(new Date(iso))
   return { fecha: `${year}-${month}-${day}`, hora: `${hour}:${minute}` }
 }
 
-/** Arma un Instant UTC desde fecha+hora de agenda clínica. */
+
 export function clinicDateTimeToIso(fecha: string, hora: string): string {
   return new Date(`${fecha}T${hora}:00${CLINIC_OFFSET}`).toISOString()
 }
@@ -63,7 +63,7 @@ export function addMonthsIso(iso: string, months: number): string {
   return toIsoDateLocal(d)
 }
 
-/** Lunes de la semana que contiene `iso` (lun–dom). */
+
 export function startOfWeekMonday(iso: string): string {
   const d = parseIsoDateLocal(iso)
   const day = d.getDay()

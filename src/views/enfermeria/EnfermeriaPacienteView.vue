@@ -11,24 +11,16 @@ import { internacionService } from '@/services/camasService'
 import { prescripcionService } from '@/services/prescripcionService'
 import { signosVitalesService } from '@/services/signosVitalesService'
 
-/**
- * Vista de Paciente — Perfil Enfermería
- * Criterios 1, 2, 3, 5, 7, 8, 9:
- * - Buscador de pacientes internados.
- * - Panel de información personal, internación y datos clínicos.
- * - Pestañas: Medicación, Historia clínica, Evolución, Signos vitales.
- * - Consulta de prescripciones (solo lectura para Enfermería).
- * - Preparado para integración futura con la API; sin peticiones HTTP en esta etapa.
- */
 
-// Búsqueda
+
+
 const searchQuery = ref('')
 
-// Paciente seleccionado
+
 const selectedPatient = ref<Paciente | null>(null)
 const selectedInternacion = ref<Internacion | null>(null)
 
-// Pestaña activa: 'medicacion' | 'historia' | 'evolucion' | 'signos'
+
 const activeTab = ref<'medicacion' | 'historia' | 'evolucion' | 'signos'>('medicacion')
 
 const pacientesInternados = ref<Paciente[]>([])
@@ -52,7 +44,7 @@ onMounted(() => {
     })
 })
 
-// Filtrado de pacientes por búsqueda
+
 const pacientesFiltrados = computed(() => {
   if (!searchQuery.value.trim()) return pacientesInternados.value
   const q = searchQuery.value.toLowerCase()
@@ -63,7 +55,7 @@ const pacientesFiltrados = computed(() => {
   )
 })
 
-// Seleccionar paciente
+
 const selectPatient = async (paciente: Paciente) => {
   selectedPatient.value = paciente
   selectedInternacion.value = staysByPatient.value.get(String(paciente.id)) || null
@@ -138,7 +130,7 @@ const administrarDosis = async (prescripcion: Prescripcion) => {
   }
 }
 
-// Estado de prescripción: etiqueta visual
+
 const getEstadoPrescripcionLabel = (estado?: string): string => {
   if (estado === 'activa') return 'Activa'
   if (estado === 'suspendida') return 'Suspendida'
@@ -156,14 +148,14 @@ const getEstadoPrescripcionClass = (estado?: string): string => {
 
 <template>
   <div>
-    <!-- Encabezado de la página -->
+
     <PageHeader
       title="Pacientes Internados"
       description="Consulta de información clínica, evolución, signos vitales y medicación de los pacientes internados."
     />
 
     <div class="row g-4">
-      <!-- Columna izquierda: Buscador y listado de pacientes -->
+
       <div class="col-12 col-xl-4">
         <div class="hospital-card mb-0">
           <div class="hospital-card-header">
@@ -177,7 +169,7 @@ const getEstadoPrescripcionClass = (estado?: string): string => {
           </div>
 
           <div class="hospital-card-body p-3">
-            <!-- Buscador -->
+
             <div class="mb-3">
               <div class="input-group input-group-sm">
                 <span class="input-group-text bg-white border-end-0">
@@ -202,7 +194,7 @@ const getEstadoPrescripcionClass = (estado?: string): string => {
               </div>
             </div>
 
-            <!-- Listado de pacientes -->
+
             <div class="hospital-table-wrapper border rounded">
               <table class="hospital-table mb-0">
                 <thead>
@@ -257,9 +249,9 @@ const getEstadoPrescripcionClass = (estado?: string): string => {
         </div>
       </div>
 
-      <!-- Columna derecha: Panel de información del paciente -->
+
       <div class="col-12 col-xl-8">
-        <!-- Estado vacío: sin paciente seleccionado -->
+
         <div v-if="!selectedPatient" class="hospital-card h-100 mb-0">
           <div class="hospital-card-header">
             <div class="hospital-card-title">
@@ -276,9 +268,9 @@ const getEstadoPrescripcionClass = (estado?: string): string => {
           </div>
         </div>
 
-        <!-- Panel activo: información del paciente seleccionado -->
+
         <div v-else class="hospital-card mb-0">
-          <!-- Cabecera del paciente -->
+
           <div class="hospital-card-header pb-3">
             <div class="d-flex align-items-center gap-3">
               <div
@@ -295,7 +287,7 @@ const getEstadoPrescripcionClass = (estado?: string): string => {
                   <span class="badge bg-light text-muted border">
                     DNI: {{ selectedPatient.dni }}
                   </span>
-                  <!-- Estado de internación (disponible cuando se conecte el backend) -->
+
                   <span v-if="selectedInternacion" class="badge-cama-disponible">
                     <i class="bi bi-hospital" style="font-size: 0.65rem;"></i>
                     Internado
@@ -327,7 +319,7 @@ const getEstadoPrescripcionClass = (estado?: string): string => {
             </div>
           </div>
 
-          <!-- Datos de internación (solo lectura) -->
+
           <div v-if="selectedInternacion" class="px-4 py-2 bg-light border-bottom">
             <div class="row g-2 small text-muted">
               <div class="col-auto">
@@ -354,7 +346,7 @@ const getEstadoPrescripcionClass = (estado?: string): string => {
           </div>
 
           <div class="hospital-card-body pt-3">
-            <!-- Pestañas de información clínica -->
+
             <ul class="enfermeria-nav-tabs" role="tablist">
               <li>
                 <button
@@ -410,7 +402,7 @@ const getEstadoPrescripcionClass = (estado?: string): string => {
               </li>
             </ul>
 
-            <!-- PESTAÑA: MEDICACIÓN (solo consulta para Enfermería) -->
+
             <div v-if="activeTab === 'medicacion'" class="tab-pane-content">
               <div class="alert alert-light border d-flex align-items-center gap-2 mb-3 py-2 px-3">
                 <i class="bi bi-info-circle" style="color: var(--hospital-red-primary); font-size: 1.1rem;"></i>
@@ -470,7 +462,7 @@ const getEstadoPrescripcionClass = (estado?: string): string => {
               </div>
             </div>
 
-            <!-- PESTAÑA: HISTORIA CLÍNICA -->
+
             <div v-else-if="activeTab === 'historia'" class="tab-pane-content">
               <div class="alert alert-light border d-flex align-items-center gap-2 mb-3 py-2 px-3">
                 <i class="bi bi-info-circle" style="color: var(--hospital-red-primary); font-size: 1.1rem;"></i>
@@ -516,7 +508,7 @@ const getEstadoPrescripcionClass = (estado?: string): string => {
               </div>
             </div>
 
-            <!-- PESTAÑA: EVOLUCIÓN -->
+
             <div v-else-if="activeTab === 'evolucion'" class="tab-pane-content">
               <EmptyState
                 icon="bi-graph-up"
@@ -525,7 +517,7 @@ const getEstadoPrescripcionClass = (estado?: string): string => {
               />
             </div>
 
-            <!-- PESTAÑA: SIGNOS VITALES -->
+
             <div v-else-if="activeTab === 'signos'" class="tab-pane-content">
               <div class="hospital-table-wrapper border rounded">
                 <table class="hospital-table mb-0">

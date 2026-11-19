@@ -8,15 +8,7 @@ import type { Medico, CreateMedicoDTO } from '@/types/medico'
 import { ApiError } from '@/services/api'
 import { medicosService } from '@/services/medicosService'
 
-/**
- * Vista: Gestión de Médicos del Administrador (AdminDoctorsView.vue)
- * Criterios 1, 2, 3, 5, 8, 9:
- * - Padrón general del cuerpo médico y datos de contacto/consultorio.
- * - Sin duplicar la configuración de horarios semanales (exclusiva de Secretaría).
- * - Indicadores con guión neutral sin datos ficticios inventados.
- * - Filtros por búsqueda, especialidad y estado profesional.
- * - Modal visual para consultar, dar de alta y editar datos del médico.
- */
+
 
 const medicos = ref<Medico[]>([])
 const availableSpecialties = ref<string[]>([])
@@ -62,17 +54,17 @@ const statCards = computed(() => [
   },
 ])
 
-// Filtros y búsqueda
+
 const searchQuery = ref('')
 const filterEspecialidad = ref('')
 const filterEstado = ref('')
 
-// Estado del Modal de Médico
+
 const isModalOpen = ref(false)
 const modalMode = ref<'crear' | 'editar' | 'consultar'>('crear')
 const selectedDoctor = ref<Medico | null>(null)
 
-// Formulario de médico (campos vacíos con placeholders descriptivos)
+
 const form = ref<CreateMedicoDTO>({
   nombre: '',
   apellido: '',
@@ -85,7 +77,7 @@ const form = ref<CreateMedicoDTO>({
   estado: 'activo',
 })
 
-// Modal para Crear
+
 const openCreateModal = () => {
   modalMode.value = 'crear'
   selectedDoctor.value = null
@@ -103,7 +95,7 @@ const openCreateModal = () => {
   isModalOpen.value = true
 }
 
-// Modal para Consultar
+
 const openViewModal = (doctor: Medico) => {
   modalMode.value = 'consultar'
   selectedDoctor.value = doctor
@@ -121,7 +113,7 @@ const openViewModal = (doctor: Medico) => {
   isModalOpen.value = true
 }
 
-// Modal para Editar
+
 const openEditModal = (doctor: Medico) => {
   modalMode.value = 'editar'
   selectedDoctor.value = doctor
@@ -139,7 +131,7 @@ const openEditModal = (doctor: Medico) => {
   isModalOpen.value = true
 }
 
-// Acción visual para Eliminar
+
 const handleDelete = async (doctor: Medico) => {
   if (!confirm(`¿Desea dar de baja al Dr/a. ${doctor.nombre} ${doctor.apellido || ''}?`)) return
   try {
@@ -172,7 +164,7 @@ const handleSave = async () => {
   }
 }
 
-// Filtrado reactivo de la lista de médicos
+
 const filteredDoctors = computed(() => {
   return medicos.value.filter((item) => {
     const q = searchQuery.value.toLowerCase().trim()
@@ -195,7 +187,7 @@ const filteredDoctors = computed(() => {
 
 <template>
   <div class="admin-doctors-view">
-    <!-- Encabezado con acción principal -->
+
     <PageHeader
       title="Gestión de Médicos"
       description="Padrón general del cuerpo médico, datos de colegiatura, consultorios y contacto."
@@ -212,7 +204,7 @@ const filteredDoctors = computed(() => {
       </template>
     </PageHeader>
 
-    <!-- Indicadores estadísticos sin datos ficticios -->
+
     <div class="row g-3 mb-4">
       <div
         v-for="card in statCards"
@@ -229,10 +221,10 @@ const filteredDoctors = computed(() => {
       </div>
     </div>
 
-    <!-- Barra de filtros y búsqueda -->
+
     <div class="hospital-filter-bar">
       <div class="row g-3 align-items-center">
-        <!-- Campo de búsqueda -->
+
         <div class="col-12 col-md-5 col-lg-4">
           <label class="form-label" for="doctor-search">Buscar médico</label>
           <div class="position-relative">
@@ -247,7 +239,7 @@ const filteredDoctors = computed(() => {
           </div>
         </div>
 
-        <!-- Filtro por especialidad -->
+
         <div class="col-12 col-md-4 col-lg-3">
           <label class="form-label" for="doctor-spec-filter">Especialidad</label>
           <select
@@ -266,7 +258,7 @@ const filteredDoctors = computed(() => {
           </select>
         </div>
 
-        <!-- Filtro por estado -->
+
         <div class="col-12 col-md-3 col-lg-3">
           <label class="form-label" for="doctor-status-filter">Estado</label>
           <select
@@ -281,7 +273,7 @@ const filteredDoctors = computed(() => {
           </select>
         </div>
 
-        <!-- Botón para limpiar filtros -->
+
         <div class="col-12 col-md-12 col-lg-2 d-flex align-items-end">
           <button
             type="button"
@@ -296,7 +288,7 @@ const filteredDoctors = computed(() => {
       </div>
     </div>
 
-    <!-- Contenedor de la Tabla -->
+
     <div class="hospital-card">
       <div class="hospital-card-header">
         <h2 class="hospital-card-title">
@@ -322,7 +314,7 @@ const filteredDoctors = computed(() => {
               </tr>
             </thead>
             <tbody>
-              <!-- Filas cuando existan médicos -->
+
               <tr
                 v-for="doctor in filteredDoctors"
                 :key="doctor.id"
@@ -393,7 +385,7 @@ const filteredDoctors = computed(() => {
                 </td>
               </tr>
 
-              <!-- Estado vacío discreto dentro de la tabla -->
+
               <tr v-if="filteredDoctors.length === 0">
                 <td colspan="6" class="p-0">
                   <EmptyState
@@ -420,7 +412,7 @@ const filteredDoctors = computed(() => {
       </div>
     </div>
 
-    <!-- Modal para Registrar / Editar / Consultar Médico -->
+
     <BaseModal
       :is-open="isModalOpen"
       :title="
@@ -437,7 +429,7 @@ const filteredDoctors = computed(() => {
     >
       <form @submit.prevent="handleSave">
         <div class="row g-3">
-          <!-- Nombre -->
+
           <div class="col-12 col-md-6">
             <label class="form-label" for="doc-nombre">
               Nombre <span class="text-danger">*</span>
@@ -453,7 +445,7 @@ const filteredDoctors = computed(() => {
             />
           </div>
 
-          <!-- Apellido -->
+
           <div class="col-12 col-md-6">
             <label class="form-label" for="doc-apellido">
               Apellido <span class="text-danger">*</span>
@@ -469,7 +461,7 @@ const filteredDoctors = computed(() => {
             />
           </div>
 
-          <!-- Especialidad -->
+
           <div class="col-12 col-md-6">
             <label class="form-label" for="doc-especialidad">
               Especialidad médica <span class="text-danger">*</span>
@@ -492,7 +484,7 @@ const filteredDoctors = computed(() => {
             </select>
           </div>
 
-          <!-- Matrícula Profesional -->
+
           <div class="col-12 col-md-6">
             <label class="form-label" for="doc-matricula">
               Matrícula profesional <span class="text-danger">*</span>
@@ -508,7 +500,7 @@ const filteredDoctors = computed(() => {
             />
           </div>
 
-          <!-- Teléfono de contacto -->
+
           <div class="col-12 col-md-6">
             <label class="form-label" for="doc-telefono">Teléfono</label>
             <input
@@ -521,7 +513,7 @@ const filteredDoctors = computed(() => {
             />
           </div>
 
-          <!-- Email institucional -->
+
           <div class="col-12 col-md-6">
             <label class="form-label" for="doc-email">Email institucional</label>
             <input
@@ -534,7 +526,7 @@ const filteredDoctors = computed(() => {
             />
           </div>
 
-          <!-- Dirección del Consultorio -->
+
           <div class="col-12 col-md-6">
             <label class="form-label" for="doc-consultorio">Dirección del consultorio</label>
             <input
@@ -547,7 +539,7 @@ const filteredDoctors = computed(() => {
             />
           </div>
 
-          <!-- Estado profesional -->
+
           <div class="col-12 col-md-6">
             <label class="form-label" for="doc-estado">
               Estado profesional <span class="text-danger">*</span>
@@ -565,7 +557,7 @@ const filteredDoctors = computed(() => {
             </select>
           </div>
 
-          <!-- Observaciones y antecedentes -->
+
           <div class="col-12">
             <label class="form-label" for="doc-observaciones">Observaciones adicionales</label>
             <textarea

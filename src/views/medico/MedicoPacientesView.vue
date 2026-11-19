@@ -11,47 +11,28 @@ import { ApiError } from '@/services/api'
 import { internacionService } from '@/services/camasService'
 import { pacientesService } from '@/services/pacientesService'
 import { prescripcionService, supplyService } from '@/services/prescripcionService'
+import { usePacientesListado } from '@/composables/usePacientesListado'
 
-/**
- * Vista de Pacientes e Historia Clínica — Perfil Médico
- * Criterios 1, 2, 3, 5, 7, 8, 9:
- *
- * Se divide en dos padrones independientes mediante pestañas:
- *   1. Padrón de turnos: listado de pacientes con turnos, búsqueda y filtro por estado.
- *   2. Padrón de internación: listado de pacientes internados con detalle, pestañas
- *      (Medicación, Historia clínica, Evolución) y modal de nueva prescripción.
- *
- * Mantiene la estética amarilla y dorada del perfil Médico.
- * Sin datos ficticios ni peticiones HTTP en esta etapa.
- */
+
 const route = useRoute()
 
-// ============================================================
-// NAVEGACIÓN ENTRE PADRONES
-// ============================================================
+
 const activePadron = ref<'turnos' | 'internacion'>('turnos')
 
-// ============================================================
-// PADRÓN DE TURNOS (estructura existente conservada)
-// ============================================================
-const searchQueryTurnos = ref('')
-const filterEstadoTurnos = ref('')
+
+const {
+  pacientes: pacientesTurnos,
+  loading: loadingPacientesTurnos,
+  error: errorPacientesTurnos,
+  loadPacientes: loadPacientesTurnos,
+  searchQuery: searchQueryTurnos,
+  filterEstado: filterEstadoTurnos,
+  pacientesFiltrados: filteredPacientesTurnos,
+  resetFiltros: resetFiltersTurnos,
+} = usePacientesListado()
+
 const selectedPatientTurnos = ref<Paciente | null>(null)
 const activeTabTurnos = ref<'historia' | 'turnos' | 'datos' | 'observaciones'>('historia')
-const pacientesTurnos = ref<Paciente[]>([])
-
-const filteredPacientesTurnos = computed(() => {
-  return pacientesTurnos.value.filter((p) => {
-    const fullName = `${p.nombre} ${p.apellido}`.toLowerCase()
-    const matchesQuery =
-      !searchQueryTurnos.value ||
-      fullName.includes(searchQueryTurnos.value.toLowerCase()) ||
-      p.dni.includes(searchQueryTurnos.value)
-    const matchesEstado =
-      !filterEstadoTurnos.value || p.estado === filterEstadoTurnos.value
-    return matchesQuery && matchesEstado
-  })
-})
 
 const selectPatientTurnos = (paciente: Paciente) => {
   selectedPatientTurnos.value = paciente
@@ -61,14 +42,7 @@ const clearSelectedPatientTurnos = () => {
   selectedPatientTurnos.value = null
 }
 
-const resetFiltersTurnos = () => {
-  searchQueryTurnos.value = ''
-  filterEstadoTurnos.value = ''
-}
 
-// ============================================================
-// PADRÓN DE INTERNACIÓN
-// ============================================================
 const filtrosInternacion = ref<InternacionFilter>({
   query: '',
   sala: '',
@@ -79,17 +53,17 @@ const selectedInternacion = ref<Internacion | null>(null)
 const selectedPatientInternacion = ref<Paciente | null>(null)
 const activeTabInternacion = ref<'medicacion' | 'historia' | 'evolucion'>('medicacion')
 
-// Colecciones reactivas vacías (sin datos ficticios)
+
 const internaciones = ref<Internacion[]>([])
 const prescripciones = ref<Prescripcion[]>([])
 
-// Salas disponibles (derivadas del listado real)
+
 const salasDisponibles = computed<string[]>(() => {
   const salasSet = new Set(internaciones.value.map((i) => i.sala))
   return Array.from(salasSet).sort()
 })
 
-// Internaciones filtradas
+
 const internacionesFiltradas = computed(() => {
   return internaciones.value.filter((internacion) => {
     const q = filtrosInternacion.value.query?.toLowerCase() || ''
@@ -142,15 +116,13 @@ const clearSelectedInternacion = () => {
   prescripciones.value = []
 }
 
-// ============================================================
-// MODAL DE NUEVA PRESCRIPCIÓN
-// ============================================================
+
 const showModalPrescripcion = ref(false)
 
-// Catálogo de medicamentos (vacío hasta conectar el backend)
+
 const catalogoSupplies = ref<Supply[]>([])
 
-// Formulario de prescripción
+
 const formPrescripcion = ref<CreatePrescripcionDTO>({
   supplyId: '',
   dosis: '',
@@ -160,7 +132,7 @@ const formPrescripcion = ref<CreatePrescripcionDTO>({
 const errorsPrescripcion = ref<Partial<Record<keyof CreatePrescripcionDTO, string>>>({})
 const isSubmittingPrescripcion = ref(false)
 
-// Intervalos de administración en horas
+
 const intervalosHoras = [1, 2, 4, 6, 8, 12, 24, 48, 72]
 
 const abrirModalPrescripcion = () => {
@@ -235,14 +207,16 @@ const applyRoutePatientSelection = () => {
 
 onMounted(async () => {
   try {
-    const [patients, stays, supplies] = await Promise.all([
-      pacientesService.getPacientes(),
+    const [, stays, supplies] = await Promise.all([
+      loadPacientesTurnos(),
       internacionService.getAll(),
       supplyService.getAll(),
     ])
-    pacientesTurnos.value = patients
     internaciones.value = stays
     catalogoSupplies.value = supplies
+    if (errorPacientesTurnos.value) {
+      alert(errorPacientesTurnos.value)
+    }
     applyRoutePatientSelection()
   } catch (err) {
     alert(err instanceof ApiError ? err.message : 'No se pudieron cargar los pacientes')
@@ -259,13 +233,13 @@ watch(
 
 <template>
   <div>
-    <!-- Encabezado de la página -->
+
     <PageHeader
       title="Pacientes"
       description="Padrón de turnos e internación. Consulta de historias clínicas y gestión de prescripciones."
     />
 
-    <!-- Pestañas principales: Padrón de turnos / Padrón de internación -->
+
     <div class="mb-4">
       <ul class="medico-nav-tabs" role="tablist" style="border-bottom: 2px solid var(--hospital-border-color);">
         <li>
@@ -297,12 +271,10 @@ watch(
       </ul>
     </div>
 
-    <!-- ======================================================
-         PADRÓN DE TURNOS
-    ====================================================== -->
+
     <div v-if="activePadron === 'turnos'">
       <div class="row g-4">
-        <!-- Panel izquierdo: Listado de pacientes con turnos -->
+
         <div class="col-12 col-xl-5 col-lg-5">
           <div class="hospital-card mb-0">
             <div class="hospital-card-header">
@@ -316,7 +288,7 @@ watch(
             </div>
 
             <div class="hospital-card-body p-3">
-              <!-- Búsqueda -->
+
               <div class="mb-3">
                 <div class="input-group input-group-sm">
                   <span class="input-group-text bg-white border-end-0">
@@ -341,7 +313,7 @@ watch(
                 </div>
               </div>
 
-              <!-- Filtro por estado -->
+
               <div class="d-flex align-items-center gap-2 mb-3">
                 <select
                   v-model="filterEstadoTurnos"
@@ -362,7 +334,7 @@ watch(
                 </button>
               </div>
 
-              <!-- Tabla de pacientes (turnos) -->
+
               <div class="hospital-table-wrapper border rounded">
                 <table class="hospital-table mb-0">
                   <thead>
@@ -421,9 +393,9 @@ watch(
           </div>
         </div>
 
-        <!-- Panel derecho: Detalle del paciente seleccionado (turnos) -->
+
         <div class="col-12 col-xl-7 col-lg-7">
-          <!-- Estado vacío -->
+
           <div v-if="!selectedPatientTurnos" class="hospital-card h-100 mb-0">
             <div class="hospital-card-header">
               <div class="hospital-card-title">
@@ -440,7 +412,7 @@ watch(
             </div>
           </div>
 
-          <!-- Panel activo con pestañas -->
+
           <div v-else class="hospital-card mb-0">
             <div class="hospital-card-header pb-3">
               <div class="d-flex align-items-center gap-3">
@@ -530,7 +502,7 @@ watch(
                 </li>
               </ul>
 
-              <!-- Historia clínica -->
+
               <div v-if="activeTabTurnos === 'historia'" class="tab-pane-content">
                 <div class="alert alert-light border d-flex align-items-center gap-2 mb-3 py-2 px-3">
                   <i class="bi bi-info-circle text-warning fs-5"></i>
@@ -588,7 +560,7 @@ watch(
                 </div>
               </div>
 
-              <!-- Turnos del paciente -->
+
               <div v-else-if="activeTabTurnos === 'turnos'" class="tab-pane-content">
                 <div class="hospital-table-wrapper border rounded">
                   <table class="hospital-table mb-0">
@@ -616,7 +588,7 @@ watch(
                 </div>
               </div>
 
-              <!-- Datos personales -->
+
               <div v-else-if="activeTabTurnos === 'datos'" class="tab-pane-content">
                 <div class="row g-3">
                   <div class="col-12 col-sm-6">
@@ -672,7 +644,7 @@ watch(
                 </div>
               </div>
 
-              <!-- Observaciones -->
+
               <div v-else-if="activeTabTurnos === 'observaciones'" class="tab-pane-content">
                 <div v-if="selectedPatientTurnos.observaciones" class="p-3 border rounded bg-light">
                   <p class="mb-0 text-dark">{{ selectedPatientTurnos.observaciones }}</p>
@@ -691,12 +663,10 @@ watch(
       </div>
     </div>
 
-    <!-- ======================================================
-         PADRÓN DE INTERNACIÓN
-    ====================================================== -->
+
     <div v-else-if="activePadron === 'internacion'">
       <div class="row g-4">
-        <!-- Panel izquierdo: Listado de pacientes internados -->
+
         <div class="col-12 col-xl-5 col-lg-5">
           <div class="hospital-card mb-0">
             <div class="hospital-card-header">
@@ -710,7 +680,7 @@ watch(
             </div>
 
             <div class="hospital-card-body p-3">
-              <!-- Buscador -->
+
               <div class="mb-2">
                 <div class="input-group input-group-sm">
                   <span class="input-group-text bg-white border-end-0">
@@ -726,7 +696,7 @@ watch(
                 </div>
               </div>
 
-              <!-- Filtros -->
+
               <div class="row g-2 mb-3">
                 <div class="col-6">
                   <select
@@ -765,7 +735,7 @@ watch(
                 </div>
               </div>
 
-              <!-- Tabla de pacientes internados -->
+
               <div class="hospital-table-wrapper border rounded">
                 <table class="hospital-table mb-0">
                   <thead>
@@ -824,9 +794,9 @@ watch(
           </div>
         </div>
 
-        <!-- Panel derecho: Información del paciente internado -->
+
         <div class="col-12 col-xl-7 col-lg-7">
-          <!-- Estado vacío: sin selección -->
+
           <div v-if="!selectedInternacion" class="hospital-card h-100 mb-0">
             <div class="hospital-card-header">
               <div class="hospital-card-title">
@@ -843,9 +813,9 @@ watch(
             </div>
           </div>
 
-          <!-- Panel activo: paciente internado seleccionado -->
+
           <div v-else class="hospital-card mb-0">
-            <!-- Cabecera del paciente internado -->
+
             <div class="hospital-card-header pb-3">
               <div class="d-flex align-items-center gap-3">
                 <div
@@ -879,7 +849,7 @@ watch(
               </button>
             </div>
 
-            <!-- Datos rápidos de la internación -->
+
             <div class="px-4 py-2 border-bottom" style="background-color: var(--hospital-amber-subtle);">
               <div class="row g-2 small">
                 <div class="col-auto text-muted">
@@ -906,7 +876,7 @@ watch(
             </div>
 
             <div class="hospital-card-body pt-3">
-              <!-- Pestañas del paciente internado -->
+
               <ul class="medico-nav-tabs" role="tablist">
                 <li>
                   <button
@@ -946,9 +916,9 @@ watch(
                 </li>
               </ul>
 
-              <!-- PESTAÑA: MEDICACIÓN -->
+
               <div v-if="activeTabInternacion === 'medicacion'" class="tab-pane-content">
-                <!-- Encabezado con botón Nueva prescripción -->
+
                 <div class="d-flex align-items-center justify-content-between mb-3">
                   <div class="fw-semibold text-dark d-flex align-items-center gap-2">
                     <i class="bi bi-capsule text-warning"></i>
@@ -966,7 +936,7 @@ watch(
                   </button>
                 </div>
 
-                <!-- Tabla de prescripciones -->
+
                 <div class="hospital-table-wrapper border rounded">
                   <table class="hospital-table mb-0">
                     <thead>
@@ -1026,7 +996,7 @@ watch(
                 </div>
               </div>
 
-              <!-- PESTAÑA: HISTORIA CLÍNICA -->
+
               <div v-else-if="activeTabInternacion === 'historia'" class="tab-pane-content">
                 <EmptyState
                   icon="bi-journal-medical"
@@ -1035,7 +1005,7 @@ watch(
                 />
               </div>
 
-              <!-- PESTAÑA: EVOLUCIÓN -->
+
               <div v-else-if="activeTabInternacion === 'evolucion'" class="tab-pane-content">
                 <EmptyState
                   icon="bi-graph-up"
@@ -1049,9 +1019,7 @@ watch(
       </div>
     </div>
 
-    <!-- ======================================================
-         MODAL DE NUEVA PRESCRIPCIÓN
-    ====================================================== -->
+
     <Teleport to="body">
       <div
         v-if="showModalPrescripcion"
@@ -1062,7 +1030,7 @@ watch(
         @click.self="cerrarModalPrescripcion"
       >
         <div class="hospital-modal">
-          <!-- Encabezado del modal -->
+
           <div class="hospital-modal-header">
             <h3 id="modal-prescripcion-title" class="hospital-modal-title">
               <i class="bi bi-capsule text-warning"></i>
@@ -1079,9 +1047,9 @@ watch(
             </button>
           </div>
 
-          <!-- Cuerpo del modal -->
+
           <div class="hospital-modal-body">
-            <!-- Información del paciente (solo lectura) -->
+
             <div
               v-if="selectedInternacion"
               class="p-3 border rounded mb-4"
@@ -1107,9 +1075,9 @@ watch(
               </div>
             </div>
 
-            <!-- Formulario de prescripción -->
+
             <form id="form-prescripcion" novalidate @submit.prevent="crearPrescripcion">
-              <!-- Selector de medicamento (Supply) -->
+
               <div class="mb-3">
                 <label for="presc-supply" class="form-label">
                   Medicamento <span class="text-danger">*</span>
@@ -1145,7 +1113,7 @@ watch(
                 </div>
               </div>
 
-              <!-- Dosis -->
+
               <div class="mb-3">
                 <label for="presc-dosis" class="form-label">
                   Dosis <span class="text-danger">*</span>
@@ -1168,7 +1136,7 @@ watch(
                 </div>
               </div>
 
-              <!-- Frecuencia (cadaHoras) -->
+
               <div class="mb-4">
                 <label for="presc-frecuencia" class="form-label">
                   Frecuencia de administración <span class="text-danger">*</span>
@@ -1199,7 +1167,7 @@ watch(
               </div>
             </form>
 
-            <!-- Aviso de integración futura -->
+
             <div class="alert alert-light border py-2 px-3 d-flex align-items-center gap-2">
               <i class="bi bi-info-circle text-warning"></i>
               <span class="small text-muted">
@@ -1209,7 +1177,7 @@ watch(
             </div>
           </div>
 
-          <!-- Pie del modal -->
+
           <div class="hospital-modal-footer">
             <button
               type="button"

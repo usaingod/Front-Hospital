@@ -9,11 +9,7 @@ import { ApiError } from '@/services/api'
 import { turnosService } from '@/services/turnosService'
 import { todayIsoLocal } from '@/utils/dateLocal'
 
-/**
- * Vista de Inicio (Secretaría)
- * Criterios 1, 2, 3, 5: Uso de componentes reutilizables, directivas de Vue (v-if, v-else, v-for),
- * comunicación por props/slots y preparación para integración de datos reales.
- */
+
 const router = useRouter()
 
 const turnosHoy = ref<Turno[]>([])
@@ -61,7 +57,7 @@ const statCards = computed(() => [
   },
 ])
 
-// Accesos directos a secciones clave
+
 const quickActions = [
   {
     title: 'Nuevo Turno',
@@ -83,7 +79,7 @@ const quickActions = [
   },
 ]
 
-// Calendario mensual compacto (estructura matemática real sin turnos inventados)
+
 const currentDate = ref(new Date())
 const selectedDate = ref<Date>(new Date())
 
@@ -103,13 +99,13 @@ const calendarDays = computed(() => {
   const firstDayOfMonth = new Date(year, month, 1)
   const lastDayOfMonth = new Date(year, month + 1, 0)
 
-  // Ajustar día de inicio considerando lunes como primer día (0 = Domingo en JS)
+
   let startDay = firstDayOfMonth.getDay() - 1
   if (startDay === -1) startDay = 6
 
   const days = []
 
-  // Días del mes anterior para rellenar
+
   const prevMonthLastDay = new Date(year, month, 0).getDate()
   for (let i = startDay - 1; i >= 0; i--) {
     days.push({
@@ -119,7 +115,7 @@ const calendarDays = computed(() => {
     })
   }
 
-  // Días del mes actual
+
   for (let i = 1; i <= lastDayOfMonth.getDate(); i++) {
     days.push({
       dayNumber: i,
@@ -128,7 +124,7 @@ const calendarDays = computed(() => {
     })
   }
 
-  // Días del siguiente mes para completar la cuadrícula de 42 celdas
+
   const remainingDays = 42 - days.length
   for (let i = 1; i <= remainingDays; i++) {
     days.push({
@@ -191,7 +187,7 @@ const navigateTo = (path: string) => {
 
 <template>
   <div>
-    <!-- Encabezado de la página usando componente reutilizable -->
+
     <PageHeader
       title="Inicio"
       description="Panel de control diario para la recepción y gestión de turnos del hospital."
@@ -206,7 +202,7 @@ const navigateTo = (path: string) => {
       </button>
     </PageHeader>
 
-    <!-- Tarjetas Estadísticas Reutilizables (Sin cantidades inventadas) -->
+
     <div class="row g-3 mb-4">
       <div
         v-for="card in statCards"
@@ -223,7 +219,7 @@ const navigateTo = (path: string) => {
       </div>
     </div>
 
-    <!-- Accesos Rápidos -->
+
     <div class="mb-4">
       <h2 class="h6 text-uppercase fw-bold text-muted mb-3" style="letter-spacing: 0.05em;">
         Accesos directos
@@ -247,9 +243,9 @@ const navigateTo = (path: string) => {
       </div>
     </div>
 
-    <!-- Contenido Principal: Turnos de Hoy & Calendario Compacto -->
+
     <div class="row g-4">
-      <!-- Columna Izquierda: Tabla Turnos de Hoy -->
+
       <div class="col-12 col-xl-8">
         <div class="hospital-card h-100 mb-0">
           <div class="hospital-card-header">
@@ -268,7 +264,7 @@ const navigateTo = (path: string) => {
           </div>
 
           <div class="hospital-card-body p-0">
-            <!-- Tabla responsiva preparada con directivas v-if / v-else / v-for -->
+
             <div class="hospital-table-wrapper border-0 rounded-0">
               <table class="hospital-table">
                 <thead>
@@ -281,7 +277,7 @@ const navigateTo = (path: string) => {
                   </tr>
                 </thead>
                 <tbody>
-                  <!-- Directiva v-if para listar turnos cuando el backend provea datos -->
+
                   <template v-if="turnosHoy.length > 0">
                     <tr v-for="turno in turnosHoy" :key="turno.id">
                       <td>{{ turno.hora }}</td>
@@ -296,7 +292,7 @@ const navigateTo = (path: string) => {
                     </tr>
                   </template>
 
-                  <!-- Directiva v-else para estado vacío estandarizado sin datos ficticios -->
+
                   <tr v-else>
                     <td colspan="5" class="p-0">
                       <EmptyState
@@ -313,9 +309,9 @@ const navigateTo = (path: string) => {
         </div>
       </div>
 
-      <!-- Columna Derecha: Calendario Compacto & Próximos Turnos -->
+
       <div class="col-12 col-xl-4 d-flex flex-column gap-4">
-        <!-- Calendario Mensual Compacto -->
+
         <div class="hospital-card mb-0">
           <div class="hospital-card-header">
             <div class="hospital-card-title">
@@ -334,7 +330,7 @@ const navigateTo = (path: string) => {
 
           <div class="hospital-card-body">
             <div class="compact-calendar">
-              <!-- Navegación del mes -->
+
               <div class="calendar-header">
                 <button
                   type="button"
@@ -357,12 +353,12 @@ const navigateTo = (path: string) => {
                 </button>
               </div>
 
-              <!-- Días de la semana -->
+
               <div class="calendar-grid-header">
                 <div v-for="d in daysOfWeek" :key="d">{{ d }}</div>
               </div>
 
-              <!-- Días del mes (Estructura visual sin turnos ficticios) -->
+
               <div class="calendar-grid-days">
                 <div
                   v-for="(day, index) in calendarDays"
@@ -382,7 +378,7 @@ const navigateTo = (path: string) => {
           </div>
         </div>
 
-        <!-- Sección: Próximos Turnos -->
+
         <div class="hospital-card mb-0 flex-grow-1">
           <div class="hospital-card-header">
             <div class="hospital-card-title">
@@ -391,7 +387,7 @@ const navigateTo = (path: string) => {
             </div>
           </div>
           <div class="hospital-card-body">
-            <!-- Estado vacío reutilizable -->
+
             <EmptyState
               compact
               icon="bi-calendar-x"

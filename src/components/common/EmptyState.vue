@@ -1,8 +1,5 @@
 <script setup lang="ts">
-/**
- * Componente reutilizable: Estado Vacío
- * Estandariza la presentación visual cuando no existen registros disponibles en tablas o paneles.
- */
+
 withDefaults(
   defineProps<{
     icon?: string

@@ -20,29 +20,19 @@ import {
 const actionBusy = ref(false)
 const router = useRouter()
 
-/**
- * Vista de Turnos (Perfil Médico)
- * Criterios 1, 2, 3, 5, 8, 9:
- * - Consulta exclusiva de turnos asignados al profesional médico (sin operaciones CRUD).
- * - Selector de fecha con navegación por día, semana y mes.
- * - Filtros visuales por estado y franja horaria.
- * - Grilla horaria con intervalos de 30 minutos (08:00 a 20:00) en estructura visual vacía.
- * - Tabla detallada con columnas: Hora, Paciente, Especialidad, Estado y Acciones.
- * - Panel lateral para consultar el detalle del turno seleccionado sin datos ficticios.
- * - Leyenda visual de estados.
- */
 
-// Modalidad de visualización: Día, Semana o Mes
+
+
 const viewMode = ref<'dia' | 'semana' | 'mes'>('dia')
 
-// Fecha actual seleccionada (formato YYYY-MM-DD)
+
 const selectedDate = ref(todayIsoLocal())
 
-// Filtros visuales
+
 const filterEstado = ref('')
 const filterFranja = ref<'todos' | 'manana' | 'tarde' | 'vespertino'>('todos')
 
-// Turno seleccionado para visualización en el panel lateral de detalle
+
 const selectedTurno = ref<Turno | null>(null)
 
 const auth = useAuthStore()
@@ -79,7 +69,7 @@ const turnosDelDia = computed(() =>
 
 const turnoEnHora = (hora: string) => turnosDelDia.value.find((t) => t.hora === hora)
 
-// Intervalos de 30 minutos desde las 08:00 hasta las 20:00
+
 const baseTimeSlots = [
   '08:00', '08:30', '09:00', '09:30', '10:00', '10:30',
   '11:00', '11:30', '12:00', '12:30', '13:00', '13:30',
@@ -87,7 +77,7 @@ const baseTimeSlots = [
   '17:00', '17:30', '18:00', '18:30', '19:00', '19:30', '20:00',
 ]
 
-// Intervalos filtrados según la franja horaria visual seleccionada
+
 const filteredTimeSlots = computed(() => {
   if (filterFranja.value === 'manana') {
     return baseTimeSlots.filter((t) => t <= '12:30')
@@ -179,7 +169,7 @@ const setToday = () => {
 
 const formattedDisplayDate = computed(() => formatDisplayDate(selectedDate.value))
 
-// Selección e inspección de detalle de turno
+
 const handleSelectTurno = (turno: Turno) => {
   selectedTurno.value = turno
 }
@@ -245,13 +235,13 @@ const resetFilters = () => {
 
 <template>
   <div>
-    <!-- Encabezado de la página usando componente reutilizable -->
+
     <PageHeader
       title="Turnos"
       description="Consulta visual de agenda médica, grilla horaria e información detallada de citas."
     >
       <div class="d-flex align-items-center gap-2">
-        <!-- Selector de modo de vista -->
+
         <div class="btn-group" role="group" aria-label="Modo de visualización de turnos">
           <button
             type="button"
@@ -284,11 +274,11 @@ const resetFilters = () => {
       </div>
     </PageHeader>
 
-    <!-- Barra de Navegación de Fecha & Leyenda de Estados -->
+
     <div class="hospital-card mb-4">
       <div class="hospital-card-body p-3">
         <div class="row g-3 align-items-center justify-content-between">
-          <!-- Controles de navegación temporal -->
+
           <div class="col-12 col-md-auto d-flex align-items-center gap-2">
             <button
               type="button"
@@ -317,7 +307,7 @@ const resetFilters = () => {
               <i class="bi bi-chevron-right"></i>
             </button>
 
-            <!-- Selector de fecha nativo -->
+
             <input
               v-model="selectedDate"
               type="date"
@@ -326,13 +316,13 @@ const resetFilters = () => {
               aria-label="Seleccionar fecha"
             />
 
-            <!-- Fecha formateada en texto -->
+
             <span class="fw-semibold text-dark ms-2 d-none d-lg-inline">
               {{ formattedDisplayDate }}
             </span>
           </div>
 
-          <!-- Leyenda visual de estados -->
+
           <div class="col-12 col-md-auto d-flex flex-wrap align-items-center gap-2">
             <span class="text-muted small me-1">Estados:</span>
             <span class="badge bg-success-subtle text-success border border-success-subtle">
@@ -353,7 +343,7 @@ const resetFilters = () => {
           </div>
         </div>
 
-        <!-- Fila de Filtros Visuales -->
+
         <div class="row g-2 mt-2 pt-2 border-top align-items-center">
           <div class="col-12 col-sm-4 col-md-3">
             <select
@@ -397,13 +387,13 @@ const resetFilters = () => {
       </div>
     </div>
 
-    <!-- Contenido Principal: Grilla/Listado & Panel Lateral de Detalle -->
+
     <div class="row g-4">
-      <!-- Columna Principal: Grilla Horaria y Tabla de Turnos -->
+
       <div :class="selectedTurno ? 'col-12 col-xl-8' : 'col-12'">
-        <!-- Modo Día: Grilla horaria de intervalos de 30 minutos y listado -->
+
         <template v-if="viewMode === 'dia'">
-          <!-- Tarjeta de Grilla Horaria (Intervalos de 30 minutos) -->
+
           <div class="hospital-card mb-4">
             <div class="hospital-card-header">
               <div class="hospital-card-title">
@@ -416,7 +406,7 @@ const resetFilters = () => {
             </div>
 
             <div class="hospital-card-body p-3">
-              <!-- Grilla de slots horarios en estructura visual vacía -->
+
               <div class="medico-agenda-grid">
                 <div
                   v-for="timeSlot in filteredTimeSlots"
@@ -448,7 +438,7 @@ const resetFilters = () => {
             </div>
           </div>
 
-          <!-- Tabla detallada de turnos del día -->
+
           <div class="hospital-card mb-0">
             <div class="hospital-card-header">
               <div class="hospital-card-title">
@@ -498,7 +488,7 @@ const resetFilters = () => {
                       </tr>
                     </template>
 
-                    <!-- Estado vacío cuando no existen turnos precargados -->
+
                     <tr v-else>
                       <td colspan="5" class="p-0">
                         <EmptyState
@@ -609,7 +599,7 @@ const resetFilters = () => {
         </template>
       </div>
 
-      <!-- Columna Lateral: Panel de Detalle del Turno Seleccionado -->
+
       <div v-if="selectedTurno" class="col-12 col-xl-4">
         <div class="hospital-card sticky-top" style="top: 85px;">
           <div class="hospital-card-header">

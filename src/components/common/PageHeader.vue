@@ -1,8 +1,5 @@
 <script setup lang="ts">
-/**
- * Componente reutilizable: Encabezado de página
- * Estandariza el título, descripción y botones de acción en las cuatro vistas de secretaría.
- */
+
 defineProps<{
   title: string
   description?: string

@@ -1,9 +1,5 @@
 <script setup lang="ts">
-/**
- * Componente reutilizable: Modal Base
- * Encapsula la estructura del diálogo, backdrop translúcido, cabecera con botón de cierre
- * y áreas configurables de cuerpo y pie mediante slots.
- */
+
 withDefaults(
   defineProps<{
     isOpen: boolean
@@ -44,7 +40,7 @@ const handleBackdropClick = () => {
         'modal-xl': size === 'xl',
       }"
     >
-      <!-- Cabecera del modal -->
+
       <div class="hospital-modal-header">
         <h2 class="hospital-modal-title">
           <i v-if="icon" :class="['bi', icon, iconColorClass]"></i>
@@ -58,12 +54,12 @@ const handleBackdropClick = () => {
         ></button>
       </div>
 
-      <!-- Contenido del modal -->
+
       <div class="hospital-modal-body">
         <slot />
       </div>
 
-      <!-- Pie del modal (Acciones) -->
+
       <div v-if="$slots.footer" class="hospital-modal-footer">
         <slot name="footer" />
       </div>

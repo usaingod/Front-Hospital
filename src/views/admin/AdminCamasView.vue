@@ -8,19 +8,7 @@ import type { Cama, Ala, CreateCamaDTO, UpdateCamaDTO, CreateAlaDTO } from '@/ty
 import { ApiError } from '@/services/api'
 import { alasService, camasService } from '@/services/camasService'
 
-/**
- * Vista: Gestión de Camas e Infraestructura Hospitalaria (AdminCamasView.vue)
- * Perfil Administrador
- * Criterios 1, 2, 3, 5, 7, 8, 9:
- * - Consulta y gestión de la infraestructura física de camas del hospital.
- * - Sin información clínica ni datos de pacientes (responsabilidad exclusiva de infraestructura).
- * - Búsqueda por número de cama y filtro por ala.
- * - Modal de registro de nueva cama con selección de ala (sin campo manual de número;
- *   el número es generado automáticamente por el backend según la regla del ala y concurrencia).
- * - Modal de creación de nuevas alas hospitalarias para ampliación de instalaciones.
- * - Modales de edición y eliminación con respeto a restricciones del backend.
- * - Sin datos ficticios, mocks ni cálculos locales de numeración.
- */
+
 
 const camas = ref<Cama[]>([])
 const alas = ref<Ala[]>([])
@@ -57,13 +45,13 @@ const statCards = computed(() => [
   },
 ])
 
-// Filtros y búsqueda
+
 const searchQuery = ref('')
 const filterAla = ref('')
 
-// Opciones reactivas de alas para los filtros y selectores
+
 const alasDisponibles = computed<string[]>(() => {
-  // Combinar alas del catálogo y alas presentes en las camas
+
   const nombresAlas = new Set<string>()
   alas.value.forEach((a) => {
     if (a.nombre) nombresAlas.add(a.nombre)
@@ -75,7 +63,7 @@ const alasDisponibles = computed<string[]>(() => {
   return Array.from(nombresAlas).sort()
 })
 
-// Camas filtradas según búsqueda y ala seleccionada
+
 const filteredCamas = computed(() => {
   return camas.value.filter((cama) => {
     const q = searchQuery.value.trim().toLowerCase()
@@ -95,9 +83,7 @@ const resetFilters = () => {
   filterAla.value = ''
 }
 
-// ============================================================
-// MODAL 1: NUEVA CAMA
-// ============================================================
+
 const isCamaModalOpen = ref(false)
 const formCama = ref<CreateCamaDTO>({
   ala: '',
@@ -151,9 +137,7 @@ const handleCamaSubmit = async () => {
   }
 }
 
-// ============================================================
-// MODAL 2: NUEVA ALA
-// ============================================================
+
 const isAlaModalOpen = ref(false)
 const formAla = ref<CreateAlaDTO>({
   nombre: '',
@@ -200,9 +184,7 @@ const handleAlaSubmit = async () => {
   }
 }
 
-// ============================================================
-// MODAL 3: EDITAR CAMA
-// ============================================================
+
 const isEditCamaModalOpen = ref(false)
 const selectedCamaParaEditar = ref<Cama | null>(null)
 const formEditCama = ref<UpdateCamaDTO>({
@@ -259,9 +241,7 @@ const handleEditCamaSubmit = async () => {
   }
 }
 
-// ============================================================
-// MODAL 4: ELIMINAR CAMA
-// ============================================================
+
 const isDeleteCamaModalOpen = ref(false)
 const selectedCamaParaEliminar = ref<Cama | null>(null)
 
@@ -296,14 +276,14 @@ const handleDeleteCamaConfirm = async () => {
 
 <template>
   <div>
-    <!-- Encabezado de la página -->
+
     <PageHeader
       title="Camas"
       description="Gestión de infraestructura hospitalaria, inventario de camas y configuración de alas."
     >
       <template #actions>
         <div class="d-flex align-items-center gap-2 flex-wrap">
-          <!-- Botón Nueva Ala -->
+
           <button
             type="button"
             class="btn-hospital-outline-primary"
@@ -314,7 +294,7 @@ const handleDeleteCamaConfirm = async () => {
             <span>+ Nueva ala</span>
           </button>
 
-          <!-- Botón Nueva Cama -->
+
           <button
             type="button"
             class="btn-hospital-primary"
@@ -328,7 +308,7 @@ const handleDeleteCamaConfirm = async () => {
       </template>
     </PageHeader>
 
-    <!-- Tarjeta con el total de camas registradas -->
+
     <div class="row g-3 mb-4">
       <div
         v-for="card in statCards"
@@ -345,10 +325,10 @@ const handleDeleteCamaConfirm = async () => {
       </div>
     </div>
 
-    <!-- Barra de búsqueda y filtros -->
+
     <div class="hospital-filter-bar mb-4">
       <div class="row g-2 align-items-end">
-        <!-- Buscador por número de cama -->
+
         <div class="col-12 col-md-6">
           <label for="buscar-cama" class="form-label small mb-1">Buscar por número de cama</label>
           <div class="input-group input-group-sm">
@@ -375,7 +355,7 @@ const handleDeleteCamaConfirm = async () => {
           </div>
         </div>
 
-        <!-- Filtro por ala -->
+
         <div class="col-12 col-md-5">
           <label for="filtro-ala" class="form-label small mb-1">Filtrar por ala</label>
           <select
@@ -391,7 +371,7 @@ const handleDeleteCamaConfirm = async () => {
           </select>
         </div>
 
-        <!-- Botón Limpiar filtros -->
+
         <div class="col-12 col-md-1 d-flex">
           <button
             v-if="hayFiltrosActivos"
@@ -406,7 +386,7 @@ const handleDeleteCamaConfirm = async () => {
       </div>
     </div>
 
-    <!-- Tabla con las camas registradas -->
+
     <div class="hospital-card mb-0">
       <div class="hospital-card-header">
         <div class="hospital-card-title">
@@ -429,7 +409,7 @@ const handleDeleteCamaConfirm = async () => {
               </tr>
             </thead>
             <tbody>
-              <!-- Filas de camas cuando existan registros -->
+
               <template v-if="filteredCamas.length > 0">
                 <tr v-for="cama in filteredCamas" :key="cama.id">
                   <td>
@@ -452,7 +432,7 @@ const handleDeleteCamaConfirm = async () => {
                   </td>
                   <td class="text-center">
                     <div class="d-inline-flex gap-1">
-                      <!-- Editar cama -->
+
                       <button
                         type="button"
                         class="btn-action-icon"
@@ -463,7 +443,7 @@ const handleDeleteCamaConfirm = async () => {
                         <i class="bi bi-pencil"></i>
                       </button>
 
-                      <!-- Eliminar cama -->
+
                       <button
                         type="button"
                         class="btn-action-icon danger"
@@ -478,7 +458,7 @@ const handleDeleteCamaConfirm = async () => {
                 </tr>
               </template>
 
-              <!-- Estado vacío cuando no hay registros -->
+
               <tr v-else>
                 <td colspan="3" class="p-0">
                   <EmptyState
@@ -505,9 +485,7 @@ const handleDeleteCamaConfirm = async () => {
       </div>
     </div>
 
-    <!-- ======================================================
-         MODAL 1: NUEVA CAMA
-    ====================================================== -->
+
     <BaseModal
       :is-open="isCamaModalOpen"
       title="Nueva Cama"
@@ -517,7 +495,7 @@ const handleDeleteCamaConfirm = async () => {
       @close="closeCamaModal"
     >
       <form id="form-nueva-cama" novalidate @submit.prevent="handleCamaSubmit">
-        <!-- Aviso sobre generación automática de número -->
+
         <div class="alert alert-light border py-2 px-3 d-flex align-items-start gap-2 mb-3">
           <i class="bi bi-info-circle text-primary fs-5 mt-1"></i>
           <div class="small text-muted">
@@ -526,7 +504,7 @@ const handleDeleteCamaConfirm = async () => {
           </div>
         </div>
 
-        <!-- Selector de Ala -->
+
         <div class="mb-3">
           <div class="d-flex align-items-center justify-content-between mb-1">
             <label for="cama-ala" class="form-label mb-0">
@@ -567,7 +545,7 @@ const handleDeleteCamaConfirm = async () => {
           </div>
         </div>
 
-        <!-- Vista previa del formato de numeración -->
+
         <div v-if="formCama.ala" class="p-3 border rounded bg-light mb-3">
           <div class="small text-muted mb-1">Asignación automática del servidor:</div>
           <div class="d-flex align-items-center gap-2 text-dark">
@@ -603,9 +581,7 @@ const handleDeleteCamaConfirm = async () => {
       </template>
     </BaseModal>
 
-    <!-- ======================================================
-         MODAL 2: NUEVA ALA
-    ====================================================== -->
+
     <BaseModal
       :is-open="isAlaModalOpen"
       title="Nueva Ala Hospitalaria"
@@ -619,7 +595,7 @@ const handleDeleteCamaConfirm = async () => {
           Registrá un ala o sector hospitalario para ampliar las instalaciones del hospital y habilitar la creación de nuevas camas.
         </p>
 
-        <!-- Nombre del ala -->
+
         <div class="mb-3">
           <label for="ala-nombre" class="form-label">
             Nombre / Identificación del ala <span class="text-danger">*</span>
@@ -642,7 +618,7 @@ const handleDeleteCamaConfirm = async () => {
           </div>
         </div>
 
-        <!-- Descripción / Ubicación -->
+
         <div class="mb-3">
           <label for="ala-descripcion" class="form-label">
             Descripción o ubicación (opcional)
@@ -678,9 +654,7 @@ const handleDeleteCamaConfirm = async () => {
       </template>
     </BaseModal>
 
-    <!-- ======================================================
-         MODAL 3: EDITAR CAMA
-    ====================================================== -->
+
     <BaseModal
       :is-open="isEditCamaModalOpen"
       title="Editar Cama"
@@ -744,9 +718,7 @@ const handleDeleteCamaConfirm = async () => {
       </template>
     </BaseModal>
 
-    <!-- ======================================================
-         MODAL 4: CONFIRMAR ELIMINACIÓN DE CAMA
-    ====================================================== -->
+
     <BaseModal
       :is-open="isDeleteCamaModalOpen"
       title="Eliminar Cama"

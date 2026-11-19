@@ -1,8 +1,5 @@
 <script setup lang="ts">
-/**
- * Componente reutilizable: Tarjeta de estadísticas e indicadores
- * Presenta métricas clave con icono distintivo, color semántico y descripción explicativa.
- */
+
 withDefaults(
   defineProps<{
     label: string
